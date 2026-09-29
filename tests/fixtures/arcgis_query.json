@@ -1,0 +1,64 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "fields": [
+    {"name": "OBJECTID", "type": "esriFieldTypeOID"},
+    {"name": "ApplicantName", "type": "esriFieldTypeString"},
+    {"name": "Display", "type": "esriFieldTypeString"},
+    {"name": "PermitType", "type": "esriFieldTypeString"},
+    {"name": "WorkType", "type": "esriFieldTypeString"},
+    {"name": "Comments", "type": "esriFieldTypeString"},
+    {"name": "IssueDate", "type": "esriFieldTypeDate"},
+    {"name": "Value", "type": "esriFieldTypeDouble"}
+  ],
+  "features": [
+    {
+      "attributes": {
+        "OBJECTID": 1,
+        "ApplicantName": "Greiner Construction",
+        "Display": "250 Marquette Ave, Minneapolis, MN 55401",
+        "PermitType": "Building",
+        "WorkType": "Commercial Remodel",
+        "Comments": "Tenant improvement for Northstar Dental, suite 300",
+        "IssueDate": 1790294400000,
+        "Value": 425000
+      }
+    },
+    {
+      "attributes": {
+        "OBJECTID": 2,
+        "ApplicantName": "Jane Homeowner",
+        "Display": "4521 Xerxes Ave S, Minneapolis, MN 55410",
+        "PermitType": "Building",
+        "WorkType": "Residential Remodel",
+        "Comments": "Single family kitchen remodel",
+        "IssueDate": 1790294400000,
+        "Value": 40000
+      }
+    },
+    {
+      "attributes": {
+        "OBJECTID": 3,
+        "ApplicantName": "Ryan Companies",
+        "Display": "900 Washington Ave N, Minneapolis, MN 55401",
+        "PermitType": "Building",
+        "WorkType": "New Construction",
+        "Comments": "New office building shell",
+        "IssueDate": 1790208000000,
+        "Value": 12000000
+      }
+    },
+    {
+      "attributes": {
+        "OBJECTID": 4,
+        "ApplicantName": "",
+        "Display": "",
+        "PermitType": "Building",
+        "WorkType": "Commercial Remodel",
+        "Comments": "",
+        "IssueDate": null,
+        "Value": null
+      }
+    }
+  ],
+  "exceededTransferLimit": false
+}

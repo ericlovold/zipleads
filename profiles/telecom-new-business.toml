@@ -1,0 +1,51 @@
+# Profile: WHAT to look for. Telecom / connectivity: any business about to
+# occupy a space needs internet and phone. Used for the Comcast Business
+# Authorized Connector referral program, but not specific to it.
+
+name = "Telecom: new and relocating businesses"
+
+[news]
+terms = [
+  '"grand opening"', '"new location"', '"is opening"', '"to open"',
+  "relocating", '"new headquarters"', '"signed a lease"', "expanding",
+]
+
+[permits]
+include_terms = [
+  "commercial", "tenant", "build-out", "buildout", "build out", "remodel",
+  "office", "retail", "restaurant", "clinic", "warehouse", "new building",
+  "new construction", "alteration", "interior",
+]
+exclude_terms = ["single family", "single-family", "residential", "duplex", "sfd", "adu"]
+
+[places]
+queries = ["opening soon", "coming soon"]
+
+[contacts]
+# Ordered: earlier titles win when several people match.
+titles = [
+  "owner", "founder", "ceo", "president", "managing partner", "principal",
+  "general manager", "office manager", "operations manager", "it manager",
+  "practice manager", "director of operations", "controller",
+]
+
+[score]
+# Multi-site pays up to $5,000 in the referral program versus $1,500 single-site.
+multi_site_bonus = 30
+phone_bonus = 10
+contact_bonus = 10
+news_only_penalty = -5
+unparsed_penalty = -10
+[score.source_weights]
+places_future = 40
+permits = 30
+google_news = 20
+
+[export]
+# Column order for the referral portal: contact, company, email, phone first.
+columns = [
+  "contact_name", "company_name", "contact_email", "phone",
+  "address", "city", "state", "zip", "contact_title", "website",
+  "signals", "sources", "signal_date", "evidence_url", "description",
+  "score", "first_seen", "dedupe_key",
+]

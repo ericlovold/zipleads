@@ -1,0 +1,27 @@
+# Generic profile: any industry. Copy and tune terms, weights, and titles.
+
+name = "Default: new and relocating businesses"
+
+[news]
+terms = ['"grand opening"', '"new location"', '"is opening"', "relocating", "expanding"]
+
+[permits]
+include_terms = ["commercial", "tenant", "remodel", "new construction", "new building"]
+exclude_terms = ["single family", "single-family", "residential", "duplex"]
+
+[places]
+queries = ["opening soon"]
+
+[contacts]
+titles = ["owner", "founder", "ceo", "president", "general manager", "office manager"]
+
+[score]
+multi_site_bonus = 20
+phone_bonus = 10
+contact_bonus = 10
+news_only_penalty = -5
+unparsed_penalty = -10
+[score.source_weights]
+places_future = 40
+permits = 30
+google_news = 20

@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "outputFields": ["id", "firstName", "lastName", "jobTitle", "email", "directPhone", "phone"],
+    "result": [
+      {
+        "input": {"personId": "102"},
+        "matchStatus": "FULL_MATCH",
+        "data": [
+          {"id": 102, "firstName": "Sam", "lastName": "Owner", "jobTitle": "Owner & Lead Dentist",
+           "email": "sam@northstardental.example", "directPhone": "(651) 555-0199", "phone": ""}
+        ]
+      }
+    ]
+  }
+}

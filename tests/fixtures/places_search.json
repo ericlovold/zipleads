@@ -1,0 +1,37 @@
+{
+  "places": [
+    {
+      "id": "ChIJfuture001",
+      "displayName": {"text": "Northstar Dental Eagan", "languageCode": "en"},
+      "formattedAddress": "1200 Yankee Doodle Rd, Eagan, MN 55121, USA",
+      "addressComponents": [
+        {"longText": "Eagan", "shortText": "Eagan", "types": ["locality", "political"]},
+        {"longText": "Minnesota", "shortText": "MN", "types": ["administrative_area_level_1", "political"]},
+        {"longText": "55121", "shortText": "55121", "types": ["postal_code"]}
+      ],
+      "businessStatus": "FUTURE_OPENING",
+      "primaryType": "dentist"
+    },
+    {
+      "id": "ChIJopen002",
+      "displayName": {"text": "Existing Coffee Co", "languageCode": "en"},
+      "formattedAddress": "10 Main St, Eagan, MN 55122, USA",
+      "addressComponents": [
+        {"longText": "55122", "shortText": "55122", "types": ["postal_code"]}
+      ],
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "cafe"
+    },
+    {
+      "id": "ChIJfuture003",
+      "displayName": {"text": "Lakeville Vet Clinic", "languageCode": "en"},
+      "formattedAddress": "500 Holyoke Ave, Lakeville, MN 55044, USA",
+      "addressComponents": [
+        {"longText": "Lakeville", "shortText": "Lakeville", "types": ["locality", "political"]},
+        {"longText": "55044", "shortText": "55044", "types": ["postal_code"]}
+      ],
+      "businessStatus": "FUTURE_OPENING",
+      "primaryType": "veterinary_care"
+    }
+  ]
+}

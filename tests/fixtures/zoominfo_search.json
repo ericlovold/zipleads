@@ -1,0 +1,8 @@
+{
+  "maxResults": 3, "totalResults": 3, "currentPage": 1,
+  "data": [
+    {"id": 101, "firstName": "Dana", "lastName": "Office", "jobTitle": "Office Manager", "hasEmail": true},
+    {"id": 102, "firstName": "Sam", "lastName": "Owner", "jobTitle": "Owner & Lead Dentist", "hasEmail": true},
+    {"id": 103, "firstName": "Pat", "lastName": "Hygienist", "jobTitle": "Dental Hygienist", "hasEmail": false}
+  ]
+}
