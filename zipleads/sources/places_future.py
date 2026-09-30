@@ -9,8 +9,11 @@ Cost: one call per (search area x profile query x page). A territory with
 85 cities and two queries is 170 calls per page level. MAX_PAGES defaults
 to 1; raise it only when a run shows nextPageToken with FUTURE_OPENING hits.
 
-Unverified against a live key: whether an "opening soon" text query surfaces
-enough FUTURE_OPENING places. The status value itself is documented.
+Live result, Eagan MN, 2026-09-30: "opening soon" returned 20 OPERATIONAL,
+"coming soon" returned 15 with no status and 5 OPERATIONAL. Zero
+FUTURE_OPENING. Text search ranks on the query words, and pre-opening
+listings do not carry those words, so this source is off by default. Kept
+for experiments with other query strategies.
 """
 
 from __future__ import annotations

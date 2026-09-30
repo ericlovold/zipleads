@@ -18,7 +18,7 @@ include_terms = [
 ]
 # Coded permit-type / occupancy values that mean housing. Matched as whole tokens.
 # Minneapolis: Comm (commercial), MFD (multi-family), TFD (two-family), SFD, Res.
-exclude_types = ["mfd", "tfd", "sfd", "res", "residential", "r2", "r3"]
+exclude_types = ["mfd", "tfd", "sfd", "res", "existres", "residential", "r2", "r3"]
 # Trade-only work that is not a move-in signal, seen in the first live Minneapolis run.
 exclude_terms = [
   "single family", "single-family", "residential", "duplex", "sfd", "adu",
@@ -60,8 +60,10 @@ boost_bonus = 10
 [score]
 # Multi-site pays up to $5,000 in the referral program versus $1,500 single-site.
 multi_site_bonus = 30
-# Permit valuation tiers: [minimum dollars, bonus]. Bigger build-out, bigger circuit.
-value_tiers = [[100000, 5], [250000, 10], [1000000, 20]]
+# Size tiers on the territory's value field: [minimum, bonus]. For Minneapolis that
+# field is the permit FEE (no valuation published): a boiler swap is ~$85, a floor-wide
+# tenant improvement is thousands. Provisional; recalibrate from `zipleads stats`.
+value_tiers = [[500, 5], [2000, 10], [10000, 20]]
 phone_bonus = 10
 contact_bonus = 10
 news_only_penalty = -5

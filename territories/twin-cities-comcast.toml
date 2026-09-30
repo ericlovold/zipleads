@@ -108,7 +108,9 @@ permit_type = "permitType"
 work_type = "workType"
 description = "comments"
 date = "issueDate"
-value = "value"
+# Minneapolis publishes no valuation (value is null); permit fees scale with
+# project size by ordinance, so totalFees is the size proxy. Tiers in the profile.
+value = "totalFees"
 occupancy = "occupancyType"
 permit_number = "permitNumber"
 status = "status"

@@ -37,3 +37,10 @@ def test_probe_places_requires_key(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
     monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
     assert main(["probe-places", "Eagan, MN"]) == 2
+
+
+def test_default_ingest_sources_exclude_places():
+    from zipleads import pipeline
+
+    assert pipeline.DEFAULT_SOURCES == ("permits", "news")
+    assert "places" in pipeline.BUILTIN_SOURCES

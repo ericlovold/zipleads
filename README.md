@@ -21,7 +21,7 @@ sources  ->  territory filter  ->  dedupe + score  ->  enrich  ->  export CSV
 |---|---|---|---|
 | ingest | ArcGIS permit layers listed in the territory | permit issued matching profile terms | nothing |
 | ingest | Google News RSS, one feed per territory city | "opens", "relocates", "expands" headlines | nothing |
-| ingest | Google Places text search | `businessStatus = FUTURE_OPENING` | Places key |
+| ingest (off by default) | Google Places text search | `businessStatus = FUTURE_OPENING` | Places key |
 | enrich | Google Places details | business phone and website | Places key |
 | enrich | ZoomInfo search + enrich | decision-maker name, title, email, direct phone | ZoomInfo creds and `ZOOMINFO_ENABLE=true` |
 
@@ -44,7 +44,7 @@ python -m zipleads probe mpls_permits
 ## Run
 
 ```bash
-python -m zipleads ingest                    # permits + news, plus places when a key is set
+python -m zipleads ingest                    # permits + news (add --sources permits,news,places to experiment)
 python -m zipleads enrich --limit 25         # phone/website via Places; ZoomInfo only if enabled
 python -m zipleads export --out out/leads.csv
 python -m zipleads send                      # export + email the CSV to MAIL_TO (--dry-run to preview)
@@ -126,11 +126,16 @@ Every parser is tested against a recorded fixture in `tests/fixtures`. Live
 endpoints were not reachable from the environment where this was written,
 so the first live run is the real integration test.
 
+## Verified against live endpoints
+
+- Minneapolis CCS Permits: field names, same-day freshness, `value` is null,
+  `totalFees` is populated and used as the size proxy.
+- Places text search does not surface `FUTURE_OPENING` listings (Eagan MN,
+  2026-09-30, 0 of 40). Places is enrichment-only by default.
+
 ## Unverified against live endpoints
 
 - Saint Paul permit layer URL and field names (Minneapolis is confirmed).
-- Whether Places text search reliably returns `FUTURE_OPENING` places for an
-  "opening soon" query. The status value itself is documented.
 - ZoomInfo request and response field names. Endpoint paths follow the
   public reference; the JSON shapes in `tests/fixtures/zoominfo_*.json` are
   the assumption.

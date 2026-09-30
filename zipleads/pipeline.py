@@ -21,6 +21,9 @@ from zipleads.territory import TerritoryMatcher
 log = logging.getLogger("zipleads")
 
 BUILTIN_SOURCES = ("permits", "news", "places")
+# Places text search does not surface FUTURE_OPENING listings (verified live, Eagan MN,
+# 2026-09-30: 0 of 40). It stays available with `--sources places` but is off by default.
+DEFAULT_SOURCES = ("permits", "news")
 
 
 @dataclass

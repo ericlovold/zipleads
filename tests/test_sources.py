@@ -18,7 +18,7 @@ def test_permits_keep_wanted_only(fixture_json, territory, profile):
     assert first.description.startswith(
         "permit BLDG-2026-01234 | Commercial | Building | Remodel | Issued"
     )
-    assert first.raw["value"] == 425000
+    assert first.value == 425000 and first.raw["value"] == 425000
 
 
 def test_tenant_extraction():

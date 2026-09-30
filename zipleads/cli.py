@@ -24,8 +24,9 @@ def _parser() -> argparse.ArgumentParser:
     s = sub.add_parser("ingest", help="pull sources, filter to territory, store and score")
     s.add_argument(
         "--sources",
-        default=",".join(pipeline.BUILTIN_SOURCES),
-        help=f"comma list from {','.join(pipeline.BUILTIN_SOURCES)}",
+        default=",".join(pipeline.DEFAULT_SOURCES),
+        help=f"comma list from {','.join(pipeline.BUILTIN_SOURCES)} "
+        f"(default {','.join(pipeline.DEFAULT_SOURCES)})",
     )
 
     e = sub.add_parser("enrich", help="attach phone/website (Places) and contact (ZoomInfo)")
@@ -210,6 +211,13 @@ def main(argv: list[str] | None = None) -> int:
                     if s:
                         by_source[s] = by_source.get(s, 0) + 1
             print(f"leads={len(rows)} submitted={submitted} by_source={by_source}")
+            values = sorted(r["value"] for r in rows if r["value"])
+            if values:
+                pct = lambda q: values[min(len(values) - 1, int(q * len(values)))]  # noqa: E731
+                print(
+                    f"value (n={len(values)}): p50={pct(0.5):.0f} p75={pct(0.75):.0f} "
+                    f"p90={pct(0.9):.0f} max={values[-1]:.0f}"
+                )
             return 0
     finally:
         store.close()

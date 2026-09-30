@@ -40,9 +40,10 @@ def test_score_flags_and_value_tiers(profile):
         base - 20
     )
     assert score_lead(profile, "mpls_permits", "permit:x,flag:boost:office", 1, "", "") == base + 10
-    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=99_999) == base
-    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=100_000) == base + 5
-    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=5_000_000) == base + 20
+    # Tiers are on permit fees for the Minneapolis territory: [[500, 5], [2000, 10], [10000, 20]].
+    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=499) == base
+    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=500) == base + 5
+    assert score_lead(profile, "mpls_permits", "permit:x", 1, "", "", value=50_000) == base + 20
     # A flag alone never triggers the "unparsed" penalty logic.
     assert score_lead(profile, "google_news", "news:headline,flag:boost:clinic", 1, "", "") == (
         20 - 5 + 10
