@@ -31,3 +31,9 @@ def test_stats_and_export_on_empty_db(tmp_path, monkeypatch, capsys):
     assert main(["export", "--out", str(out)]) == 0
     assert out.read_text().startswith("contact_name,company_name,contact_email,phone")
     assert main(["mark-submitted", "nope"]) == 1
+
+
+def test_probe_places_requires_key(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+    monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
+    assert main(["probe-places", "Eagan, MN"]) == 2

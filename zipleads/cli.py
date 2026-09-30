@@ -50,6 +50,9 @@ def _parser() -> argparse.ArgumentParser:
 
     sub.add_parser("stats", help="counts by source and submission state")
 
+    pp = sub.add_parser("probe-places", help="run the profile's Places queries for one area")
+    pp.add_argument("area", help='e.g. "Eagan, MN" or a zip')
+
     t = sub.add_parser("new-territory", help="write a territory TOML skeleton from zips")
     t.add_argument("--name", required=True)
     t.add_argument("--state", required=True, help="two-letter state code")
@@ -117,6 +120,36 @@ def main(argv: list[str] | None = None) -> int:
             for attrs in arcgis_permits.sample_features(http, layer, args.sample):
                 print("---")
                 print(json.dumps(attrs, indent=1, default=str))
+        return 0
+
+    if args.cmd == "probe-places":
+        if not settings.places_enabled:
+            print("GOOGLE_PLACES_API_KEY not set", file=sys.stderr)
+            return 2
+        from collections import Counter
+
+        from zipleads.sources import places_future
+
+        headers = {
+            "X-Goog-Api-Key": settings.google_places_api_key,
+            "X-Goog-FieldMask": places_future.FIELD_MASK,
+        }
+        for query in profile.places_queries:
+            page = http.post_json(
+                places_future.SEARCH_URL,
+                {"textQuery": f"{query} {args.area}", "pageSize": 20},
+                headers=headers,
+            )
+            places = page.get("places", [])
+            statuses = Counter(p.get("businessStatus", "?") for p in places)
+            print(
+                f'"{query} {args.area}": {len(places)} results, statuses={dict(statuses)}, '
+                f"nextPage={'yes' if page.get('nextPageToken') else 'no'}"
+            )
+            for p in places:
+                if p.get("businessStatus") == places_future.FUTURE_OPENING:
+                    name = (p.get("displayName") or {}).get("text", "")
+                    print(f"   FUTURE_OPENING  {name}  |  {p.get('formattedAddress', '')}")
         return 0
 
     store = Store(settings.db_path)
