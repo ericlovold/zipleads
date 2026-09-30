@@ -248,6 +248,14 @@ class Store:
             sql += f" LIMIT {int(limit)}"
         return self.conn.execute(sql).fetchall()
 
+    def reset_enrichment(self) -> int:
+        """Allow another enrich pass over unsubmitted leads still missing a phone."""
+        cur = self.conn.execute(
+            "UPDATE leads SET enriched_at = '' WHERE submitted_at = '' AND phone = ''"
+        )
+        self.conn.commit()
+        return cur.rowcount
+
     def needs_enrichment(self, limit: int) -> list[sqlite3.Row]:
         """Unsubmitted leads missing a phone or a contact, never enriched, best first."""
         return self.conn.execute(

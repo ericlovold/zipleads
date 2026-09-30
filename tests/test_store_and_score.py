@@ -92,3 +92,15 @@ def test_migration_adds_columns_to_old_database(tmp_path):
     store = Store(db)
     cols = {row[1] for row in store.conn.execute("PRAGMA table_info(leads)")}
     assert {"applicant", "value", "submitted_ref"} <= cols
+
+
+def test_reset_enrichment_only_touches_unsubmitted_without_phone(tmp_path):
+    store = Store(tmp_path / "t.sqlite")
+    k1, _ = store.upsert(_lead(company_name="A"))
+    k2, _ = store.upsert(_lead(company_name="B", phone="1"))
+    k3, _ = store.upsert(_lead(company_name="C"))
+    for k in (k1, k2, k3):
+        store.mark_enriched(k)
+    store.mark_submitted(k3)
+    assert store.reset_enrichment() == 1
+    assert [r["dedupe_key"] for r in store.needs_enrichment(10)] == [k1]

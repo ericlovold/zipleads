@@ -204,6 +204,14 @@ def test_enrich_with_zoominfo_enabled(make_settings, territory, profile, fixture
     assert row["score"] == 40 + 10 + 10
 
 
+def test_street_key_ignores_directionals_and_suffixes():
+    k = places_details._street_key
+    assert k("60 6TH ST S") == k("60 S 6th St, Minneapolis, MN 55402") == "60 6th"
+    assert k("575 9TH ST SE") == k("575 9th St SE, Minneapolis") == "575 9th"
+    assert k("201 IRVING AVE N") == "201 irving"
+    assert k("") == ""
+
+
 def test_find_at_address_filters_to_same_street_number():
     http = FakeHttp(
         {

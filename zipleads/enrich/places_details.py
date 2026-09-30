@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from zipleads.http import Http
-from zipleads.normalize import normalize_name
+from zipleads.normalize import normalize_address, normalize_name
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
@@ -39,10 +39,20 @@ def _similar(a: str, b: str) -> bool:
     return na in nb or nb in na or na.split()[0] == nb.split()[0]
 
 
+_DIRECTIONALS = {"n", "s", "e", "w", "ne", "nw", "se", "sw"}
+
+
 def _street_key(address: str) -> str:
-    """'575 9TH ST SE' -> '575 9th' : number plus first street token, for matching."""
-    parts = normalize_name(address).split()
-    return " ".join(parts[:2])
+    """House number plus street name, ignoring directionals and suffixes.
+
+    '60 6TH ST S' and Google's '60 S 6th St' both become '60 6th'.
+    """
+    parts = normalize_address(address).split()
+    if not parts:
+        return ""
+    number = parts[0]
+    street = next((t for t in parts[1:] if t not in _DIRECTIONALS), "")
+    return f"{number} {street}".strip()
 
 
 def find_at_address(

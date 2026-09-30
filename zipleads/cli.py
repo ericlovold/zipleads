@@ -31,6 +31,9 @@ def _parser() -> argparse.ArgumentParser:
 
     e = sub.add_parser("enrich", help="attach phone/website (Places) and contact (ZoomInfo)")
     e.add_argument("--limit", type=int, default=25, help="max leads to enrich this run")
+    e.add_argument(
+        "--redo", action="store_true", help="retry leads already tried that have no phone"
+    )
 
     x = sub.add_parser("export", help="write unsubmitted leads to CSV, best first")
     x.add_argument("--out", default="out/leads.csv")
@@ -169,6 +172,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.cmd == "enrich":
+            if args.redo:
+                print(f"reset {store.reset_enrichment()} leads for another pass")
             r = pipeline.enrich(ctx, args.limit)
             print(
                 f"attempted={r.attempted} phones_found={r.phones_found} "
