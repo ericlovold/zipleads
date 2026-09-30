@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS leads (
     dedupe_key    TEXT PRIMARY KEY,
     norm_name     TEXT NOT NULL,
     company_name  TEXT NOT NULL,
+    applicant     TEXT NOT NULL DEFAULT '',
     address       TEXT NOT NULL DEFAULT '',
     city          TEXT NOT NULL DEFAULT '',
     state         TEXT NOT NULL DEFAULT 'MN',
@@ -47,9 +48,15 @@ CREATE TABLE IF NOT EXISTS sightings (
     raw          TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sightings_name ON sightings(norm_name);
+CREATE TABLE IF NOT EXISTS geocode_cache (
+    query   TEXT PRIMARY KEY,
+    zip     TEXT NOT NULL,
+    cached  TEXT NOT NULL
+);
 """
 
 _MERGE_FIELDS = (
+    "applicant",
     "address",
     "city",
     "state",
@@ -83,6 +90,22 @@ class Store:
         self.conn = sqlite3.connect(self.path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    # Columns added after the first release, with their DDL. A database created by an
+    # older version gets them on open; CREATE TABLE IF NOT EXISTS alone would not.
+    _ADDED_COLUMNS = {
+        "applicant": "TEXT NOT NULL DEFAULT ''",
+        "value": "REAL NOT NULL DEFAULT 0",
+        "submitted_ref": "TEXT NOT NULL DEFAULT ''",
+    }
+
+    def _migrate(self) -> None:
+        have = {row[1] for row in self.conn.execute("PRAGMA table_info(leads)")}
+        for name, ddl in self._ADDED_COLUMNS.items():
+            if name not in have:
+                self.conn.execute(f"ALTER TABLE leads ADD COLUMN {name} {ddl}")
+        self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()
@@ -97,15 +120,16 @@ class Store:
         if row is None:
             cur.execute(
                 """INSERT INTO leads (
-                       dedupe_key, norm_name, company_name, address, city, state, zip,
+                       dedupe_key, norm_name, company_name, applicant, address, city, state, zip,
                        phone, website, contact_name, contact_title, contact_email,
                        sources, signals, signal_date, evidence_url, description, value,
                        first_seen, last_seen)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     norm_name,
                     lead.company_name,
+                    lead.applicant,
                     lead.address,
                     lead.city,
                     lead.state,
@@ -166,6 +190,19 @@ class Store:
             (norm_name,),
         ).fetchone()
         return int(row[0])
+
+    def cached_zip(self, query: str) -> str | None:
+        row = self.conn.execute(
+            "SELECT zip FROM geocode_cache WHERE query = ?", (query,)
+        ).fetchone()
+        return None if row is None else row[0]
+
+    def cache_zip(self, query: str, zip_code: str) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO geocode_cache (query, zip, cached) VALUES (?,?,?)",
+            (query, zip_code, _now()),
+        )
+        self.conn.commit()
 
     def add_signal(self, key: str, signal: str) -> None:
         row = self.get(key)

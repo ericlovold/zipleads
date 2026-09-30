@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from zipleads.config import Profile, Settings, Territory
 from zipleads.enrich import places_details
 from zipleads.enrich.zoominfo import ZoomInfoClient
+from zipleads.geocode import Geocoder
 from zipleads.http import Http
 from zipleads.models import Lead
 from zipleads.score import score_lead
@@ -32,6 +33,7 @@ class Context:
 
     def __post_init__(self) -> None:
         self.matcher = TerritoryMatcher(self.territory)
+        self.geocoder = Geocoder(self.http, self.store)
 
 
 @dataclass
@@ -70,6 +72,8 @@ def _rescore(ctx: Context, key: str) -> int:
 
 def _absorb(ctx: Context, leads: list[Lead], report: IngestReport) -> None:
     for lead in leads:
+        if not lead.zip and lead.address:
+            lead.zip = ctx.geocoder.zip_for(lead.address, lead.city, lead.state)
         if not in_territory(lead, ctx.matcher):
             report.dropped_out_of_territory += 1
             continue

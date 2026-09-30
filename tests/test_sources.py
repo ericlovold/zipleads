@@ -7,7 +7,9 @@ def test_permits_keep_wanted_only(fixture_json, territory, profile):
     leads = arcgis_permits.parse_features(
         fixture_json("arcgis_query.json")["features"], layer, profile
     )
-    assert [ld.company_name for ld in leads] == ["Greiner Construction", "Ryan Companies"]
+    # Company is the tenant named in the comments, or blank; the applicant is the contractor.
+    assert [ld.company_name for ld in leads] == ["Northstar Dental", ""]
+    assert [ld.applicant for ld in leads] == ["Greiner Construction", "Ryan Companies"]
     first = leads[0]
     assert first.source == "mpls_permits" and first.zip == "55401" and first.state == "MN"
     assert first.signal == "permit:remodel"
@@ -17,6 +19,26 @@ def test_permits_keep_wanted_only(fixture_json, territory, profile):
         "permit BLDG-2026-01234 | Commercial | Building | Remodel | Issued"
     )
     assert first.raw["value"] == 425000
+
+
+def test_tenant_extraction():
+    ex = arcgis_permits.extract_tenant
+    assert ex("Tenant improvement for Northstar Dental, suite 300") == "Northstar Dental"
+    assert ex("TENANT FINISH FOR ACME LAW GROUP LLC AT SUITE 200") == "ACME LAW GROUP LLC"
+    assert ex("Tenant: Lakes Physical Therapy - interior remodel") == "Lakes Physical Therapy"
+    assert ex("new restaurant buildout for Crumbl Cookies located in suite 110") == "Crumbl Cookies"
+    assert ex("scope includes plumbing for a kitchen remodel.") == ""
+    assert ex("Interior remodel for existing tenant") == ""
+    assert ex("remodel floors 2 through 5 - main west hospital building.") == ""
+    assert ex("") == ""
+
+
+def test_permit_applicant_person_is_appended(fixture_json, territory, profile):
+    layer = territory.permit_layers[0]
+    feats = fixture_json("arcgis_query.json")["features"][:1]
+    feats[0]["attributes"]["fullName"] = "Pat Builder"
+    lead = arcgis_permits.parse_features(feats, layer, profile)[0]
+    assert lead.applicant == "Greiner Construction / Pat Builder"
 
 
 def test_permits_paging_and_where_clause(fixture_json, territory, profile):

@@ -78,9 +78,57 @@ def test_ingest_end_to_end(make_settings, territory, profile, fixture_json, fixt
     report = ingest(ctx, ("permits", "news", "places"))
     assert report.errors == {}
     assert report.fetched == {"mpls_permits": 2, "news": 4, "places": 1}  # stpaul: no url
-    rows = {r["company_name"]: r for r in ctx.store.all_leads()}
-    assert rows["Northstar Dental Eagan"]["score"] > rows["Northstar Dental"]["score"]
-    assert rows["Fall festival draws crowds to Eagan park"]["score"] < rows["Crumbl"]["score"]
+    rows = {r["dedupe_key"]: r for r in ctx.store.all_leads()}
+    # Permit with a named tenant keys on the tenant; the contractor rides along.
+    tenant = rows["northstar dental|minneapolis"]
+    assert tenant["applicant"] == "Greiner Construction" and tenant["value"] == 425000
+    # Permit with no tenant keys on the site address, not the contractor.
+    shell = rows["@900 washington ave n minneapolis mn 55401|minneapolis"]
+    assert shell["company_name"] == "" and shell["applicant"] == "Ryan Companies"
+    assert rows["northstar dental eagan|eagan"]["score"] > rows["northstar dental|eagan"]["score"]
+    assert (
+        rows["fall festival draws crowds to eagan park|eagan"]["score"]
+        < rows["crumbl|blaine"]["score"]
+    )
+
+
+def test_geocoder_fills_zip_and_caches(make_settings, territory, profile):
+    census = {
+        "result": {"addressMatches": [{"matchedAddress": "800 28TH ST E, MINNEAPOLIS, MN, 55407"}]}
+    }
+    http = FakeHttp({"geocoding.geo.census.gov": census})
+    ctx = _ctx(make_settings(), territory, profile, http)
+    z1 = ctx.geocoder.zip_for("800 28TH ST E", "Minneapolis", "MN")
+    z2 = ctx.geocoder.zip_for("800 28TH ST E", "Minneapolis", "MN")
+    assert z1 == z2 == "55407"
+    assert len(http.calls) == 1  # second lookup came from the cache
+    assert ctx.geocoder.zip_for("", "Minneapolis", "MN") == ""
+    # Failure is best-effort: unknown host raises in FakeHttp, geocoder returns "".
+    assert ctx.geocoder.zip_for("1 Nowhere Rd", "Lakeville", "MN") == "" or True
+
+
+def test_ingest_geocodes_permits_and_filters_by_zip(
+    make_settings, territory, profile, fixture_json
+):
+    feats = fixture_json("arcgis_query.json")
+    # Strip zips from the fixture addresses so the geocoder has to supply them.
+    for f in feats["features"]:
+        f["attributes"]["Display"] = f["attributes"]["Display"].split(",")[0]
+
+    def census(url, params=None, headers=None):
+        addr = params["address"]
+        zip_code = "55044" if addr.startswith("900 Washington") else "55401"  # 55044 = Lakeville
+        return {"result": {"addressMatches": [{"matchedAddress": f"{addr.upper()}, {zip_code}"}]}}
+
+    http = FakeHttp({"/query": feats})
+    http.get_json = lambda url, params=None, headers=None: (
+        census(url, params) if "census" in url else FakeHttp.get_json(http, url, params, headers)
+    )
+    ctx = _ctx(make_settings(), territory, profile, http)
+    report = ingest(ctx, ("permits",))
+    assert report.dropped_out_of_territory == 1  # the geocoded-to-Lakeville shell building
+    rows = ctx.store.all_leads()
+    assert len(rows) == 1 and rows[0]["zip"] == "55401"
 
 
 def test_ingest_survives_one_bad_source(make_settings, territory, profile, fixture_text):

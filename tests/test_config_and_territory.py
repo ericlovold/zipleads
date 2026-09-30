@@ -22,7 +22,12 @@ def test_extract_zip_and_dedupe_key():
     assert extract_zip("PO Box 123456") == ""
     assert dedupe_key("Northstar Dental LLC", "55121") == "northstar dental|55121"
     assert dedupe_key("Northstar Dental", "", city="Eagan") == "northstar dental|eagan"
+    # City wins over zip so news (no zip) and Places (zip) land on one key.
+    assert dedupe_key("Northstar Dental", "55121", city="Eagan") == "northstar dental|eagan"
     assert dedupe_key("", "55401", address="250 Marquette Ave") == "@250 marquette ave|55401"
+    assert dedupe_key("", "", city="Minneapolis", address="800 28th St E") == (
+        "@800 28th st e|minneapolis"
+    )
 
 
 def test_territory_loads_zips_cities_and_layers(territory):

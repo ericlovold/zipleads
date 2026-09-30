@@ -80,11 +80,13 @@ def extract_zip(text: str) -> str:
 def dedupe_key(company_name: str, zip_code: str, city: str = "", address: str = "") -> str:
     """Stable key for the same business in the same place.
 
-    Prefer name + zip. Fall back to name + city when the zip is unknown (news),
-    then address + zip when the name is unknown (some permits).
+    Place is the city when known, else the zip. City wins because news has no
+    zip and permits often have no zip until geocoded, and the same business
+    seen by two sources must land on one key. Falls back to address + place
+    when the business name is unknown (a permit filed by a contractor).
     """
     name = normalize_name(company_name)
-    place = zip_code.strip() or normalize_address(city)
+    place = normalize_address(city) or zip_code.strip()
     if name and place:
         return f"{name}|{place}"
     if name:

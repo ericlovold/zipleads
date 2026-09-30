@@ -11,6 +11,7 @@ class Lead:
     source: str
     signal: str
     company_name: str
+    applicant: str = ""  # who filed the permit (usually a contractor), not the business
     address: str = ""
     city: str = ""
     state: str = "MN"

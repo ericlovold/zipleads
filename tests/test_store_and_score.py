@@ -76,3 +76,19 @@ def test_score_ordering(profile):
     assert s("", "") == 0
     assert s("google_news", "news:unparsed") < news_only
     assert s("google_news,mpls_permits", "news:unparsed,permit:x") > permit
+
+
+def test_migration_adds_columns_to_old_database(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "old.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE leads (dedupe_key TEXT PRIMARY KEY, norm_name TEXT NOT NULL, "
+        "company_name TEXT NOT NULL, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL)"
+    )
+    con.commit()
+    con.close()
+    store = Store(db)
+    cols = {row[1] for row in store.conn.execute("PRAGMA table_info(leads)")}
+    assert {"applicant", "value", "submitted_ref"} <= cols

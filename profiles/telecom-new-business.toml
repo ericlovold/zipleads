@@ -16,7 +16,12 @@ include_terms = [
   "office", "retail", "restaurant", "clinic", "warehouse", "new building",
   "new construction", "alteration", "interior",
 ]
-exclude_terms = ["single family", "single-family", "residential", "duplex", "sfd", "adu"]
+# Trade-only work that is not a move-in signal, seen in the first live Minneapolis run.
+exclude_terms = [
+  "single family", "single-family", "residential", "duplex", "sfd", "adu",
+  "roofwind", "reroof", "re-roof", "roofing", "antenna", "demolition", "wrecking",
+  "solar", "siding", "fence", "signage", "parking lot", "elevator",
+]
 
 [places]
 queries = ["opening soon", "coming soon"]
@@ -35,11 +40,18 @@ titles = [
 exclude = ["school", "university", "college", "academy", "education", "school district", "preschool", "daycare"]
 # deprioritize: kept and flagged for a human. Dental usually rides a Delta national
 # agreement; hospitality has extra rules; franchises vary by brand.
-deprioritize = ["dental", "dentist", "orthodont", "hotel", "motel", "resort", "lodging", "hospitality", "franchise"]
+deprioritize = [
+  "dental", "dentist", "orthodont", "hotel", "motel", "resort", "lodging", "hospitality",
+  "franchise", "hospital", "health system",  # hospitals are enterprise accounts
+]
 deprioritize_penalty = -20
 # boost: segments that tend to buy fiber plus add-ons (average fiber deal $700+ versus
 # $140 for "just internet").
-boost = ["office", "clinic", "medical", "surgery", "law", "attorney", "warehouse", "manufactur", "logistics", "engineering", "financial", "insurance", "accounting"]
+boost = [
+  "tenant improvement", "tenant finish", "tenant build", "buildout", "build-out", "build out",
+  "new tenant", "office", "clinic", "medical", "surgery", "law", "attorney", "warehouse",
+  "manufactur", "logistics", "engineering", "financial", "insurance", "accounting",
+]
 boost_bonus = 10
 
 [score]
@@ -60,7 +72,7 @@ google_news = 20
 # Column order for the referral portal: contact, company, email, phone first.
 columns = [
   "contact_name", "company_name", "contact_email", "phone",
-  "address", "city", "state", "zip", "contact_title", "website",
+  "address", "city", "state", "zip", "applicant", "contact_title", "website",
   "signals", "sources", "signal_date", "evidence_url", "description",
   "score", "first_seen", "dedupe_key",
 ]

@@ -11,6 +11,7 @@ tenant up during enrichment.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 
 from zipleads.config import PermitLayer, Profile
@@ -19,6 +20,46 @@ from zipleads.models import Lead
 from zipleads.normalize import extract_zip
 
 PAGE_SIZE = 1000
+
+# "tenant improvement for Northstar Dental, suite 300" -> "Northstar Dental".
+# Stops at punctuation or a location word. Case-insensitive because permit
+# comments arrive in every case imaginable.
+_NAME = (
+    r"(?!(?:a|an|new|existing|future|this|the|our|their)\b)"
+    r"(?P<name>[A-Za-z0-9&'.][A-Za-z0-9&'.\- ]{2,60}?)"
+    r"(?=\s*(?:[,.;:|()\n]|\s+-\s+|\s+(?:at|in|on|located|suite|ste|floor|fl|unit)\b|$))"
+)
+_TENANT_PATTERNS = (
+    re.compile(r"\btenant\s*[:\-]\s*(?:the\s+)?" + _NAME, re.IGNORECASE),
+    re.compile(r"\bfor\s+(?:the\s+)?" + _NAME, re.IGNORECASE),
+)
+_GENERIC = {
+    "tenant",
+    "office",
+    "space",
+    "building",
+    "commercial",
+    "restaurant",
+    "retail",
+    "warehouse",
+    "remodel",
+    "renovation",
+    "improvement",
+    "improvements",
+    "occupancy",
+}
+
+
+def extract_tenant(text: str) -> str:
+    """Business named in a permit description, or empty string."""
+    for pattern in _TENANT_PATTERNS:
+        for m in pattern.finditer(text or ""):
+            name = m.group("name").strip(" -.")
+            words = name.lower().split()
+            if not words or all(w in _GENERIC for w in words) or len(words) > 8:
+                continue
+            return name
+    return ""
 
 
 def layer_fields(http: Http, layer: PermitLayer) -> list[dict]:
@@ -64,14 +105,18 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""
         status = str(a.get(f.status) or "") if f.status else ""
         applicant = str(a.get(f.applicant) or "").strip()
+        person = str(a.get(f.applicant_person) or "").strip() if f.applicant_person else ""
+        if person and person.lower() != applicant.lower():
+            applicant = f"{applicant} / {person}" if applicant else person
         address = str(a.get(f.address) or "").strip()
-        if not applicant and not address:
-            continue
+        if not address:
+            continue  # the site is the lead; a permit with no site is noise
         leads.append(
             Lead(
                 source=layer.name,
                 signal=f"permit:{(work_type or permit_type).strip().lower()}"[:60],
-                company_name=applicant,
+                company_name=extract_tenant(description),
+                applicant=applicant,
                 address=address,
                 city=layer.city,
                 state=layer.state,
