@@ -16,6 +16,9 @@ include_terms = [
   "office", "retail", "restaurant", "clinic", "warehouse", "new building",
   "new construction", "alteration", "interior",
 ]
+# Coded permit-type / occupancy values that mean housing. Matched as whole tokens.
+# Minneapolis: Comm (commercial), MFD (multi-family), TFD (two-family), SFD, Res.
+exclude_types = ["mfd", "tfd", "sfd", "res", "residential", "r2", "r3"]
 # Trade-only work that is not a move-in signal, seen in the first live Minneapolis run.
 exclude_terms = [
   "single family", "single-family", "residential", "duplex", "sfd", "adu",
@@ -72,7 +75,7 @@ google_news = 20
 # Column order for the referral portal: contact, company, email, phone first.
 columns = [
   "contact_name", "company_name", "contact_email", "phone",
-  "address", "city", "state", "zip", "applicant", "contact_title", "website",
+  "address", "city", "state", "zip", "applicant", "value", "contact_title", "website",
   "signals", "sources", "signal_date", "evidence_url", "description",
   "score", "first_seen", "dedupe_key",
 ]

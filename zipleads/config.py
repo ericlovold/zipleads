@@ -182,6 +182,7 @@ class Profile:
     news_only_penalty: int
     unparsed_penalty: int
     export_columns: tuple[str, ...]
+    permit_exclude_types: tuple[str, ...] = ()  # exact tokens on permit type / occupancy
     segment_exclude: tuple[str, ...] = ()
     segment_deprioritize: tuple[str, ...] = ()
     segment_boost: tuple[str, ...] = ()
@@ -225,6 +226,7 @@ def load_profile(path: str | Path) -> Profile:
         news_terms=tuple(doc.get("news", {}).get("terms", [])),
         permit_include_terms=tuple(t.lower() for t in permits.get("include_terms", [])),
         permit_exclude_terms=tuple(t.lower() for t in permits.get("exclude_terms", [])),
+        permit_exclude_types=tuple(t.lower() for t in permits.get("exclude_types", [])),
         places_queries=tuple(doc.get("places", {}).get("queries", ["opening soon"])),
         contact_titles=tuple(doc.get("contacts", {}).get("titles", [])),
         source_weights={k: int(v) for k, v in score.get("source_weights", {}).items()},

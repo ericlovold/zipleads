@@ -33,7 +33,44 @@ _TENANT_PATTERNS = (
     re.compile(r"\btenant\s*[:\-]\s*(?:the\s+)?" + _NAME, re.IGNORECASE),
     re.compile(r"\bfor\s+(?:the\s+)?" + _NAME, re.IGNORECASE),
 )
+_NUMBER_WORDS = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
+_TRADE_WORDS = {
+    "electrical",
+    "plumbing",
+    "mechanical",
+    "hvac",
+    "heating",
+    "cooling",
+    "sprinkler",
+    "fire",
+    "alarm",
+    "ada",
+    "restroom",
+    "restrooms",
+    "bathroom",
+    "bathrooms",
+    "kitchen",
+    "unit",
+    "units",
+    "floor",
+    "floors",
+    "suite",
+    "suites",
+    "roof",
+    "roofing",
+    "deck",
+    "signage",
+    "sign",
+    "signs",
+    "parking",
+    "elevator",
+    "permit",
+    "permits",
+    "inspection",
+}
 _GENERIC = {
+    *_NUMBER_WORDS,
+    *_TRADE_WORDS,
     "tenant",
     "office",
     "space",
@@ -51,12 +88,23 @@ _GENERIC = {
 
 
 def extract_tenant(text: str) -> str:
-    """Business named in a permit description, or empty string."""
+    """Business named in a permit description, or empty string.
+
+    In mixed-case text a real name starts with a capital, which rejects
+    "for two (2) ADA restrooms". In all-caps or all-lowercase text that test
+    is meaningless, so only the generic-word filter applies.
+    """
+    text = text or ""
+    mixed_case = text != text.upper() and text != text.lower()
     for pattern in _TENANT_PATTERNS:
-        for m in pattern.finditer(text or ""):
+        for m in pattern.finditer(text):
             name = m.group("name").strip(" -.")
             words = name.lower().split()
-            if not words or all(w in _GENERIC for w in words) or len(words) > 8:
+            if not words or len(words) > 8:
+                continue
+            if any(w in _GENERIC for w in words[:1]) or all(w in _GENERIC for w in words):
+                continue
+            if mixed_case and not name[0].isupper():
                 continue
             return name
     return ""
@@ -84,7 +132,15 @@ def _number(value) -> float:
         return 0.0
 
 
-def wanted(profile: Profile, *texts: str) -> bool:
+def _tokens(*texts: str) -> set[str]:
+    return {tok for t in texts if t for tok in re.split(r"[^a-z0-9]+", t.lower()) if tok}
+
+
+def wanted(profile: Profile, *texts: str, type_fields: tuple[str, ...] = ()) -> bool:
+    """Profile filter. `type_fields` are coded fields (permit type, occupancy) matched
+    as whole tokens against exclude_types, so "Res" is caught but "restaurant" is not."""
+    if profile.permit_exclude_types and _tokens(*type_fields) & set(profile.permit_exclude_types):
+        return False
     hay = " ".join(t.lower() for t in texts if t)
     if profile.permit_include_terms and not any(t in hay for t in profile.permit_include_terms):
         return False
@@ -100,7 +156,14 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         work_type = str(a.get(f.work_type) or "")
         description = str(a.get(f.description) or "")
         occupancy = str(a.get(f.occupancy) or "") if f.occupancy else ""
-        if not wanted(profile, permit_type, work_type, description, occupancy):
+        if not wanted(
+            profile,
+            permit_type,
+            work_type,
+            description,
+            occupancy,
+            type_fields=(permit_type, occupancy),
+        ):
             continue
         permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""
         status = str(a.get(f.status) or "") if f.status else ""

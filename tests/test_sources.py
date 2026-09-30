@@ -30,7 +30,24 @@ def test_tenant_extraction():
     assert ex("scope includes plumbing for a kitchen remodel.") == ""
     assert ex("Interior remodel for existing tenant") == ""
     assert ex("remodel floors 2 through 5 - main west hospital building.") == ""
+    assert ex("Plumbing for two (2) ADA restrooms, electric water cooler, and a mop sink") == ""
+    assert ex("SEPARATE PERMITS ARE REQUIRED FOR ELECTRICAL, PLUMBING, AND HEATING") == ""
+    assert (
+        ex("Office tenant improvement on 7th floor. Tenant:  JE Dunn Constru") == "JE Dunn Constru"
+    )
     assert ex("") == ""
+
+
+def test_permit_exclude_types_are_whole_tokens(territory, profile):
+    from zipleads.sources.arcgis_permits import wanted
+
+    assert not wanted(
+        profile, "MFD", "Remodel", "kitchen remodel", type_fields=("MFD", "Commercial")
+    )
+    assert not wanted(profile, "TFD", "Remodel", "deck", type_fields=("TFD", "Res"))
+    assert wanted(
+        profile, "Comm", "Remodel", "restaurant build-out", type_fields=("Comm", "Commercial")
+    )
 
 
 def test_permit_applicant_person_is_appended(fixture_json, territory, profile):
