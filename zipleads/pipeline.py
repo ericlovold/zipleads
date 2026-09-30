@@ -12,6 +12,7 @@ from zipleads.enrich.zoominfo import ZoomInfoClient
 from zipleads.http import Http
 from zipleads.models import Lead
 from zipleads.score import score_lead
+from zipleads.segments import excluded_by, flags_for
 from zipleads.sources import arcgis_permits, google_news, places_future
 from zipleads.store import Store
 from zipleads.territory import TerritoryMatcher
@@ -40,6 +41,7 @@ class IngestReport:
     created: int = 0
     merged: int = 0
     dropped_out_of_territory: int = 0
+    dropped_by_segment: dict[str, int] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
 
 
@@ -60,6 +62,7 @@ def _rescore(ctx: Context, key: str) -> int:
         distinct_addresses=ctx.store.distinct_addresses(row["norm_name"]),
         phone=row["phone"],
         contact_email=row["contact_email"],
+        value=row["value"],
     )
     ctx.store.set_score(key, score)
     return score
@@ -70,7 +73,12 @@ def _absorb(ctx: Context, leads: list[Lead], report: IngestReport) -> None:
         if not in_territory(lead, ctx.matcher):
             report.dropped_out_of_territory += 1
             continue
+        if term := excluded_by(ctx.profile, lead):
+            report.dropped_by_segment[term] = report.dropped_by_segment.get(term, 0) + 1
+            continue
         key, created = ctx.store.upsert(lead)
+        for flag in flags_for(ctx.profile, lead):
+            ctx.store.add_signal(key, flag)
         _rescore(ctx, key)
         report.kept += 1
         if created:

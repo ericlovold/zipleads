@@ -23,6 +23,7 @@ class Lead:
     signal_date: str = ""
     evidence_url: str = ""
     description: str = ""
+    value: float = 0.0
     raw: dict = field(default_factory=dict)
 
     def raw_json(self) -> str:

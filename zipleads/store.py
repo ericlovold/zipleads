@@ -28,11 +28,13 @@ CREATE TABLE IF NOT EXISTS leads (
     signal_date   TEXT NOT NULL DEFAULT '',
     evidence_url  TEXT NOT NULL DEFAULT '',
     description   TEXT NOT NULL DEFAULT '',
+    value         REAL NOT NULL DEFAULT 0,
     score         INTEGER NOT NULL DEFAULT 0,
     first_seen    TEXT NOT NULL,
     last_seen     TEXT NOT NULL,
     enriched_at   TEXT NOT NULL DEFAULT '',
-    submitted_at  TEXT NOT NULL DEFAULT ''
+    submitted_at  TEXT NOT NULL DEFAULT '',
+    submitted_ref TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sightings (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,9 +99,9 @@ class Store:
                 """INSERT INTO leads (
                        dedupe_key, norm_name, company_name, address, city, state, zip,
                        phone, website, contact_name, contact_title, contact_email,
-                       sources, signals, signal_date, evidence_url, description,
+                       sources, signals, signal_date, evidence_url, description, value,
                        first_seen, last_seen)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     norm_name,
@@ -118,6 +120,7 @@ class Store:
                     lead.signal_date,
                     lead.evidence_url,
                     lead.description,
+                    lead.value,
                     now,
                     now,
                 ),
@@ -131,6 +134,8 @@ class Store:
                 incoming = getattr(lead, f)
                 if incoming and not row[f]:
                     updates[f] = incoming
+            if lead.value > row["value"]:
+                updates["value"] = lead.value
             sets = ", ".join(f"{k} = ?" for k in updates)
             cur.execute(f"UPDATE leads SET {sets} WHERE dedupe_key = ?", (*updates.values(), key))
             created = False
@@ -162,6 +167,12 @@ class Store:
         ).fetchone()
         return int(row[0])
 
+    def add_signal(self, key: str, signal: str) -> None:
+        row = self.get(key)
+        if row is None:
+            return
+        self.update_fields(key, signals=_merge_list(row["signals"], signal))
+
     def set_score(self, key: str, score: int) -> None:
         self.conn.execute("UPDATE leads SET score = ? WHERE dedupe_key = ?", (score, key))
         self.conn.commit()
@@ -176,10 +187,12 @@ class Store:
     def mark_enriched(self, key: str) -> None:
         self.update_fields(key, enriched_at=_now())
 
-    def mark_submitted(self, key: str) -> bool:
+    def mark_submitted(self, key: str, ref: str = "") -> bool:
+        """Record the hand-off. `ref` is the receiving system's id (e.g. portal referral id)."""
         cur = self.conn.execute(
-            "UPDATE leads SET submitted_at = ? WHERE dedupe_key = ? AND submitted_at = ''",
-            (_now(), key),
+            "UPDATE leads SET submitted_at = ?, submitted_ref = ? "
+            "WHERE dedupe_key = ? AND submitted_at = ''",
+            (_now(), ref, key),
         )
         self.conn.commit()
         return cur.rowcount == 1

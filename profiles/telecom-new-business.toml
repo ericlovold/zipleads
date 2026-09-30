@@ -29,9 +29,24 @@ titles = [
   "practice manager", "director of operations", "controller",
 ]
 
+[segments]
+# Keyword scrub over company name, description, and Places primary type.
+# exclude: dropped before storage. The program cannot pay on education.
+exclude = ["school", "university", "college", "academy", "education", "school district", "preschool", "daycare"]
+# deprioritize: kept and flagged for a human. Dental usually rides a Delta national
+# agreement; hospitality has extra rules; franchises vary by brand.
+deprioritize = ["dental", "dentist", "orthodont", "hotel", "motel", "resort", "lodging", "hospitality", "franchise"]
+deprioritize_penalty = -20
+# boost: segments that tend to buy fiber plus add-ons (average fiber deal $700+ versus
+# $140 for "just internet").
+boost = ["office", "clinic", "medical", "surgery", "law", "attorney", "warehouse", "manufactur", "logistics", "engineering", "financial", "insurance", "accounting"]
+boost_bonus = 10
+
 [score]
 # Multi-site pays up to $5,000 in the referral program versus $1,500 single-site.
 multi_site_bonus = 30
+# Permit valuation tiers: [minimum dollars, bonus]. Bigger build-out, bigger circuit.
+value_tiers = [[100000, 5], [250000, 10], [1000000, 20]]
 phone_bonus = 10
 contact_bonus = 10
 news_only_penalty = -5

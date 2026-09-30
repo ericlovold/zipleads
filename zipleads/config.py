@@ -47,6 +47,16 @@ class Settings:
     territory_path: Path
     profile_path: Path
     ingest_days: int
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    mail_from: str = ""
+    mail_to: tuple[str, ...] = ()
+
+    @property
+    def mail_enabled(self) -> bool:
+        return bool(self.smtp_host and self.mail_from and self.mail_to)
 
     @property
     def places_enabled(self) -> bool:
@@ -69,6 +79,12 @@ def load_settings() -> Settings:
         territory_path=Path(env.get("ZIPLEADS_TERRITORY", "territories/twin-cities-comcast.toml")),
         profile_path=Path(env.get("ZIPLEADS_PROFILE", "profiles/telecom-new-business.toml")),
         ingest_days=int(env.get("INGEST_DAYS", "7")),
+        smtp_host=env.get("SMTP_HOST", "").strip(),
+        smtp_port=int(env.get("SMTP_PORT", "465")),
+        smtp_user=env.get("SMTP_USER", "").strip(),
+        smtp_password=env.get("SMTP_PASSWORD", ""),
+        mail_from=env.get("MAIL_FROM", "").strip(),
+        mail_to=tuple(a.strip() for a in env.get("MAIL_TO", "").split(",") if a.strip()),
     )
 
 
@@ -162,6 +178,12 @@ class Profile:
     news_only_penalty: int
     unparsed_penalty: int
     export_columns: tuple[str, ...]
+    segment_exclude: tuple[str, ...] = ()
+    segment_deprioritize: tuple[str, ...] = ()
+    segment_boost: tuple[str, ...] = ()
+    deprioritize_penalty: int = -20
+    boost_bonus: int = 10
+    value_tiers: tuple[tuple[float, int], ...] = ()
     path: Path = field(default=Path("."))
 
 
@@ -192,6 +214,8 @@ def load_profile(path: str | Path) -> Profile:
     doc = tomllib.loads(path.read_text(encoding="utf-8"))
     score = doc.get("score", {})
     permits = doc.get("permits", {})
+    segments = doc.get("segments", {})
+    tiers = tuple((float(t[0]), int(t[1])) for t in score.get("value_tiers", []))
     return Profile(
         name=doc.get("name", path.stem),
         news_terms=tuple(doc.get("news", {}).get("terms", [])),
@@ -206,5 +230,11 @@ def load_profile(path: str | Path) -> Profile:
         news_only_penalty=int(score.get("news_only_penalty", -5)),
         unparsed_penalty=int(score.get("unparsed_penalty", -10)),
         export_columns=tuple(doc.get("export", {}).get("columns", DEFAULT_EXPORT_COLUMNS)),
+        segment_exclude=tuple(t.lower() for t in segments.get("exclude", [])),
+        segment_deprioritize=tuple(t.lower() for t in segments.get("deprioritize", [])),
+        segment_boost=tuple(t.lower() for t in segments.get("boost", [])),
+        deprioritize_penalty=int(segments.get("deprioritize_penalty", -20)),
+        boost_bonus=int(segments.get("boost_bonus", 10)),
+        value_tiers=tuple(sorted(tiers)),
         path=path,
     )

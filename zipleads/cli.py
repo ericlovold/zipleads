@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from zipleads import pipeline
+from zipleads import mail, pipeline
 from zipleads.config import load_profile, load_settings, load_territory
 from zipleads.export import write_csv
 from zipleads.http import RequestsHttp
@@ -36,6 +36,12 @@ def _parser() -> argparse.ArgumentParser:
 
     m = sub.add_parser("mark-submitted", help="record that leads were handed off")
     m.add_argument("keys", nargs="+")
+    m.add_argument("--ref", default="", help="receiving system's id, e.g. portal referral id")
+
+    sd = sub.add_parser("send", help="export unsubmitted leads and email the CSV to MAIL_TO")
+    sd.add_argument("--out", default="out/leads.csv")
+    sd.add_argument("--limit", type=int, default=None)
+    sd.add_argument("--dry-run", action="store_true", help="build the email, print it, do not send")
 
     pr = sub.add_parser("probe", help="print a permit layer's field names")
     pr.add_argument("layer", help="permit layer name from the territory file")
@@ -115,7 +121,8 @@ def main(argv: list[str] | None = None) -> int:
             r = pipeline.ingest(ctx, sources)
             print(
                 f"fetched={r.fetched} kept={r.kept} created={r.created} merged={r.merged} "
-                f"dropped_out_of_territory={r.dropped_out_of_territory}"
+                f"dropped_out_of_territory={r.dropped_out_of_territory} "
+                f"dropped_by_segment={r.dropped_by_segment}"
             )
             if r.errors:
                 print(f"errors={r.errors}", file=sys.stderr)
@@ -136,11 +143,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {n} leads to {args.out}")
             return 0
         if args.cmd == "mark-submitted":
-            missed = [k for k in args.keys if not store.mark_submitted(k)]
+            missed = [k for k in args.keys if not store.mark_submitted(k, args.ref)]
             if missed:
                 print(f"not found or already submitted: {missed}", file=sys.stderr)
                 return 1
             print(f"marked {len(args.keys)} submitted")
+            return 0
+        if args.cmd == "send":
+            rows = store.unsubmitted(args.limit)
+            write_csv(rows, profile.export_columns, args.out)
+            msg = mail.build_message(settings, rows, Path(args.out), territory.name)
+            if args.dry_run:
+                print(msg.as_string()[:4000])
+                return 0
+            if not settings.mail_enabled:
+                print("SMTP_HOST, MAIL_FROM and MAIL_TO must be set to send", file=sys.stderr)
+                return 2
+            mail.send(settings, msg)
+            print(f"sent {len(rows)} leads to {', '.join(settings.mail_to)}")
             return 0
         if args.cmd == "stats":
             rows = store.all_leads()

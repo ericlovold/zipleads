@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from zipleads.config import Profile
 
+FLAG_DEPRIORITIZED = "flag:deprioritized"
+FLAG_BOOST = "flag:boost"
+
 
 def score_lead(
     profile: Profile,
@@ -12,9 +15,11 @@ def score_lead(
     distinct_addresses: int,
     phone: str,
     contact_email: str,
+    value: float = 0.0,
 ) -> int:
     source_list = [s for s in sources.split(",") if s]
     signal_list = [s for s in signals.split(",") if s]
+    real_signals = [s for s in signal_list if not s.startswith("flag:")]
 
     def weight(source: str) -> int:
         if source in profile.source_weights:
@@ -34,6 +39,13 @@ def score_lead(
         score += profile.contact_bonus
     if source_list == ["google_news"]:
         score += profile.news_only_penalty
-    if signal_list and all(s == "news:unparsed" for s in signal_list):
+    if real_signals and all(s == "news:unparsed" for s in real_signals):
         score += profile.unparsed_penalty
+    if any(s.startswith(FLAG_DEPRIORITIZED) for s in signal_list):
+        score += profile.deprioritize_penalty
+    if any(s.startswith(FLAG_BOOST) for s in signal_list):
+        score += profile.boost_bonus
+    reached = [bonus for threshold, bonus in profile.value_tiers if value >= threshold]
+    if reached:
+        score += max(reached)  # permit valuation as a proxy for build-out size and fiber odds
     return score

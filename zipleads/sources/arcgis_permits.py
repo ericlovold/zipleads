@@ -36,6 +36,13 @@ def _epoch_ms_to_iso(value) -> str:
         return str(value)
 
 
+def _number(value) -> float:
+    try:
+        return float(value) if value not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def wanted(profile: Profile, *texts: str) -> bool:
     hay = " ".join(t.lower() for t in texts if t)
     if profile.permit_include_terms and not any(t in hay for t in profile.permit_include_terms):
@@ -69,6 +76,7 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
                 signal_date=_epoch_ms_to_iso(a.get(f.date)),
                 evidence_url=layer.url,
                 description=" | ".join(x for x in (permit_type, work_type, description) if x)[:500],
+                value=_number(a.get(f.value)),
                 raw={"attributes": a, "value": a.get(f.value)},
             )
         )

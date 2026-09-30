@@ -47,9 +47,14 @@ python -m zipleads probe mpls_permits
 python -m zipleads ingest                    # permits + news, plus places when a key is set
 python -m zipleads enrich --limit 25         # phone/website via Places; ZoomInfo only if enabled
 python -m zipleads export --out out/leads.csv
-python -m zipleads mark-submitted <dedupe_key> ...   # after handing leads off
+python -m zipleads send                      # export + email the CSV to MAIL_TO (--dry-run to preview)
+python -m zipleads mark-submitted <dedupe_key> --ref <portal id>   # after handing leads off
 python -m zipleads stats
 ```
+
+`send` is the daily hand-off: a ranked summary in the body, the full CSV
+attached, one email to everyone in `MAIL_TO`. `mark-submitted --ref` stores
+the receiving system's id so its status export can be joined back to ours.
 
 `--territory` and `--profile` override the `.env` defaults per run, so one
 checkout can serve several territories and industries:
@@ -61,7 +66,7 @@ python -m zipleads --territory territories/austin.toml --profile profiles/defaul
 Cron on a Mac Mini, weekdays at 6:15:
 
 ```
-15 6 * * 1-5  cd /path/to/zipleads && .venv/bin/python -m zipleads ingest && .venv/bin/python -m zipleads export --out out/leads.csv
+15 6 * * 1-5  cd /path/to/zipleads && .venv/bin/python -m zipleads ingest && .venv/bin/python -m zipleads enrich --limit 25 && .venv/bin/python -m zipleads send
 ```
 
 ## New territory
@@ -91,8 +96,24 @@ the layer URL ends in `/FeatureServer/0`.
 A rough priority, not a probability. Highest source weight, plus a bonus
 when several sources agree, plus a multi-site bonus when the same company
 appears at two or more addresses, plus bonuses for an attached phone and
-contact. Headlines the parser could not name a company from are penalized
-but kept, so a human can still see them. Weights live in the profile.
+contact. Permit valuation adds a tiered bonus as a proxy for build-out size.
+Headlines the parser could not name a company from are penalized but kept,
+so a human can still see them. Weights live in the profile.
+
+## Segment scrub
+
+The profile's `[segments]` table is a keyword pass over company name,
+description, and Places primary type:
+
+- `exclude` drops the lead before storage (education, for the telecom profile).
+- `deprioritize` keeps it, tags it `flag:deprioritized:<term>`, and applies a
+  penalty. The tag shows in the email body so a human can decide (dental,
+  hospitality, franchise).
+- `boost` tags `flag:boost:<term>` and adds a bonus for segments that tend to
+  buy bigger circuits (offices, clinics, warehouses, professional services).
+
+It is a keyword match, so it will miss some and mis-flag others. Treat it as a
+first pass, not a filter you trust blindly.
 
 ## Tests
 
