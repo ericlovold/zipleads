@@ -94,21 +94,24 @@ zips = []
 "New Prague" = ["56071"]
 "New Ulm" = ["56073"]
 
-# Permit layers in this territory. Field names are from documentation; confirm with
-# `zipleads probe <name>` and edit here before the first real run.
+# Permit layers in this territory. Minneapolis field names were confirmed against the
+# live layer with `zipleads probe mpls_permits` on 2026-09-30. Saint Paul is unconfirmed.
 
 [[permit_layers]]
 name = "mpls_permits"
 city = "Minneapolis"
 url = "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/CCS_Permits/FeatureServer/0"
 [permit_layers.fields]
-applicant = "ApplicantName"
+applicant = "applicantName"
 address = "Display"
-permit_type = "PermitType"
-work_type = "WorkType"
-description = "Comments"
-date = "IssueDate"
-value = "Value"
+permit_type = "permitType"
+work_type = "workType"
+description = "comments"
+date = "issueDate"
+value = "value"
+occupancy = "occupancyType"
+permit_number = "permitNumber"
+status = "status"
 
 # Saint Paul: set url once the FeatureServer URL is confirmed from information.stpaul.gov
 # ("View API Resources" on the Building Permits dataset). Blank url = skipped.

@@ -58,8 +58,11 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         permit_type = str(a.get(f.permit_type) or "")
         work_type = str(a.get(f.work_type) or "")
         description = str(a.get(f.description) or "")
-        if not wanted(profile, permit_type, work_type, description):
+        occupancy = str(a.get(f.occupancy) or "") if f.occupancy else ""
+        if not wanted(profile, permit_type, work_type, description, occupancy):
             continue
+        permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""
+        status = str(a.get(f.status) or "") if f.status else ""
         applicant = str(a.get(f.applicant) or "").strip()
         address = str(a.get(f.address) or "").strip()
         if not applicant and not address:
@@ -75,7 +78,18 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
                 zip=extract_zip(address),
                 signal_date=_epoch_ms_to_iso(a.get(f.date)),
                 evidence_url=layer.url,
-                description=" | ".join(x for x in (permit_type, work_type, description) if x)[:500],
+                description=" | ".join(
+                    x
+                    for x in (
+                        f"permit {permit_number}" if permit_number else "",
+                        occupancy,
+                        permit_type,
+                        work_type,
+                        status,
+                        description,
+                    )
+                    if x
+                )[:500],
                 value=_number(a.get(f.value)),
                 raw={"attributes": a, "value": a.get(f.value)},
             )

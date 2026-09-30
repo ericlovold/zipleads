@@ -100,6 +100,9 @@ class PermitFieldMap:
     description: str = "DESCRIPTION"
     date: str = "ISSUE_DATE"
     value: str = "VALUATION"
+    occupancy: str = ""  # optional: e.g. "Commercial" / "Residential"
+    permit_number: str = ""  # optional: cited in the lead description
+    status: str = ""  # optional: included in description for the reader
 
 
 @dataclass(frozen=True)

@@ -32,7 +32,8 @@ def test_territory_loads_zips_cities_and_layers(territory):
     assert "54016" in territory.zips  # Hudson WI, still in the rep's list
     assert "55044" not in territory.zips  # Lakeville is another carrier
     assert [ly.name for ly in territory.permit_layers] == ["mpls_permits", "stpaul_permits"]
-    assert territory.permit_layers[0].fields.applicant == "ApplicantName"
+    assert territory.permit_layers[0].fields.applicant == "applicantName"
+    assert territory.permit_layers[0].fields.occupancy == "occupancyType"
     assert territory.permit_layers[1].url == ""
 
 

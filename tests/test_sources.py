@@ -10,9 +10,12 @@ def test_permits_keep_wanted_only(fixture_json, territory, profile):
     assert [ld.company_name for ld in leads] == ["Greiner Construction", "Ryan Companies"]
     first = leads[0]
     assert first.source == "mpls_permits" and first.zip == "55401" and first.state == "MN"
-    assert first.signal == "permit:commercial remodel"
+    assert first.signal == "permit:remodel"
     assert first.signal_date == "2026-09-25"
     assert "Northstar Dental" in first.description
+    assert first.description.startswith(
+        "permit BLDG-2026-01234 | Commercial | Building | Remodel | Issued"
+    )
     assert first.raw["value"] == 425000
 
 
@@ -22,7 +25,7 @@ def test_permits_paging_and_where_clause(fixture_json, territory, profile):
     assert len(leads) == 2
     _, url, params = http.calls[0]
     assert url.endswith("CCS_Permits/FeatureServer/0/query")
-    assert params["where"].startswith("IssueDate >= TIMESTAMP '")
+    assert params["where"].startswith("issueDate >= TIMESTAMP '")
 
 
 def test_permits_skip_when_url_blank(territory, profile):

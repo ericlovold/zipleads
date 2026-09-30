@@ -33,9 +33,9 @@ pip install -r requirements.txt
 cp .env.example .env      # fill in keys; never commit .env
 ```
 
-Permit layer field names in the shipped territory came from documentation,
-not a live call. Confirm them before the first run and edit the territory
-file if they differ:
+Minneapolis permit field names in the shipped territory were confirmed
+against the live layer. For any new layer, confirm before the first run and
+edit the territory file if they differ:
 
 ```bash
 python -m zipleads probe mpls_permits
@@ -128,7 +128,7 @@ so the first live run is the real integration test.
 
 ## Unverified against live endpoints
 
-- Permit layer field names and date field for Minneapolis and Saint Paul.
+- Saint Paul permit layer URL and field names (Minneapolis is confirmed).
 - Whether Places text search reliably returns `FUTURE_OPENING` places for an
   "opening soon" query. The status value itself is documented.
 - ZoomInfo request and response field names. Endpoint paths follow the

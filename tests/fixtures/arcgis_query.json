@@ -2,61 +2,69 @@
   "objectIdFieldName": "OBJECTID",
   "fields": [
     {"name": "OBJECTID", "type": "esriFieldTypeOID"},
-    {"name": "ApplicantName", "type": "esriFieldTypeString"},
+    {"name": "applicantName", "type": "esriFieldTypeString"},
     {"name": "Display", "type": "esriFieldTypeString"},
-    {"name": "PermitType", "type": "esriFieldTypeString"},
-    {"name": "WorkType", "type": "esriFieldTypeString"},
-    {"name": "Comments", "type": "esriFieldTypeString"},
-    {"name": "IssueDate", "type": "esriFieldTypeDate"},
-    {"name": "Value", "type": "esriFieldTypeDouble"}
+    {"name": "permitType", "type": "esriFieldTypeString"},
+    {"name": "workType", "type": "esriFieldTypeString"},
+    {"name": "comments", "type": "esriFieldTypeString"},
+    {"name": "issueDate", "type": "esriFieldTypeDate"},
+    {"name": "value", "type": "esriFieldTypeDouble"}
   ],
   "features": [
     {
       "attributes": {
         "OBJECTID": 1,
-        "ApplicantName": "Greiner Construction",
+        "applicantName": "Greiner Construction",
         "Display": "250 Marquette Ave, Minneapolis, MN 55401",
-        "PermitType": "Building",
-        "WorkType": "Commercial Remodel",
-        "Comments": "Tenant improvement for Northstar Dental, suite 300",
-        "IssueDate": 1790294400000,
-        "Value": 425000
+        "permitType": "Building",
+        "workType": "Remodel",
+        "occupancyType": "Commercial",
+        "permitNumber": "BLDG-2026-01234",
+        "status": "Issued",
+        "comments": "Tenant improvement for Northstar Dental, suite 300",
+        "issueDate": 1790294400000,
+        "value": 425000
       }
     },
     {
       "attributes": {
         "OBJECTID": 2,
-        "ApplicantName": "Jane Homeowner",
+        "applicantName": "Jane Homeowner",
         "Display": "4521 Xerxes Ave S, Minneapolis, MN 55410",
-        "PermitType": "Building",
-        "WorkType": "Residential Remodel",
-        "Comments": "Single family kitchen remodel",
-        "IssueDate": 1790294400000,
-        "Value": 40000
+        "permitType": "Building",
+        "workType": "Remodel",
+        "occupancyType": "Residential",
+        "comments": "Single family kitchen remodel",
+        "issueDate": 1790294400000,
+        "value": 40000
       }
     },
     {
       "attributes": {
         "OBJECTID": 3,
-        "ApplicantName": "Ryan Companies",
+        "applicantName": "Ryan Companies",
         "Display": "900 Washington Ave N, Minneapolis, MN 55401",
-        "PermitType": "Building",
-        "WorkType": "New Construction",
-        "Comments": "New office building shell",
-        "IssueDate": 1790208000000,
-        "Value": 12000000
+        "permitType": "Building",
+        "workType": "New Construction",
+        "occupancyType": "Commercial",
+        "permitNumber": "BLDG-2026-01300",
+        "status": "Issued",
+        "comments": "New office building shell",
+        "issueDate": 1790208000000,
+        "value": 12000000
       }
     },
     {
       "attributes": {
         "OBJECTID": 4,
-        "ApplicantName": "",
+        "applicantName": "",
         "Display": "",
-        "PermitType": "Building",
-        "WorkType": "Commercial Remodel",
-        "Comments": "",
-        "IssueDate": null,
-        "Value": null
+        "permitType": "Building",
+        "workType": "Remodel",
+        "occupancyType": "Commercial",
+        "comments": "",
+        "issueDate": null,
+        "value": null
       }
     }
   ],
