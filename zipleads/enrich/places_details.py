@@ -14,7 +14,9 @@ from zipleads.normalize import normalize_address, normalize_name
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
-SEARCH_MASK = "places.id,places.displayName,places.formattedAddress"
+SEARCH_MASK = (
+    "places.id,places.displayName,places.formattedAddress,places.types,places.businessStatus"
+)
 DETAILS_MASK = "id,nationalPhoneNumber,websiteUri,businessStatus"
 
 
@@ -40,6 +42,44 @@ def _similar(a: str, b: str) -> bool:
 
 
 _DIRECTIONALS = {"n", "s", "e", "w", "ne", "nw", "se", "sw"}
+# Text search also returns the address itself, the building, and geographic areas.
+# None of those is a business.
+_NOT_A_BUSINESS = {
+    "street_address",
+    "premise",
+    "subpremise",
+    "route",
+    "intersection",
+    "geocode",
+    "postal_code",
+    "locality",
+    "sublocality",
+    "neighborhood",
+    "political",
+    "plus_code",
+    "administrative_area_level_1",
+    "administrative_area_level_2",
+    "country",
+    "parking",
+    "point_of_interest_only",
+}
+
+
+def is_business(place: dict) -> bool:
+    """Reject results that are an address, a building, or an area rather than a business.
+
+    A place typed only with address-like types is out. So is one whose name is
+    just its own street address ("575 SE 9th St"), whatever its types say.
+    """
+    types = set(place.get("types") or [])
+    real_types = types - _NOT_A_BUSINESS - {"point_of_interest", "establishment"}
+    if types & _NOT_A_BUSINESS and not real_types:
+        return False
+    name = (place.get("displayName") or {}).get("text", "")
+    formatted = place.get("formattedAddress", "")
+    if name and formatted and _street_key(name) == _street_key(formatted):
+        return False
+    return True
 
 
 def _street_key(address: str) -> str:
@@ -70,6 +110,8 @@ def find_at_address(
     want = _street_key(address)
     hits = []
     for p in page.get("places", []):
+        if not is_business(p):
+            continue
         formatted = p.get("formattedAddress", "")
         if want and _street_key(formatted) != want:
             continue  # a nearby place, not this address
@@ -92,6 +134,8 @@ def find_place_id(http: Http, api_key: str, company_name: str, address: str) -> 
         headers={"X-Goog-Api-Key": api_key, "X-Goog-FieldMask": SEARCH_MASK},
     )
     for p in page.get("places", []):
+        if not is_business(p):
+            continue
         if _similar(company_name, (p.get("displayName") or {}).get("text", "")):
             return p.get("id", "")
     return ""
