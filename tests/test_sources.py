@@ -45,6 +45,10 @@ def test_permit_exclude_types_are_whole_tokens(territory, profile):
         profile, "MFD", "Remodel", "kitchen remodel", type_fields=("MFD", "Commercial")
     )
     assert not wanted(profile, "TFD", "Remodel", "deck", type_fields=("TFD", "Res"))
+    # Trade permits: occupancy blank, housing code in the work type.
+    assert not wanted(
+        profile, "Plumbing", "Res", "basement bathroom", type_fields=("Plumbing", "Res", "")
+    )
     assert wanted(
         profile, "Comm", "Remodel", "restaurant build-out", type_fields=("Comm", "Commercial")
     )
@@ -65,6 +69,13 @@ def test_permits_paging_and_where_clause(fixture_json, territory, profile):
     _, url, params = http.calls[0]
     assert url.endswith("CCS_Permits/FeatureServer/0/query")
     assert params["where"].startswith("issueDate >= TIMESTAMP '")
+
+
+def test_probe_sample_returns_raw_attributes(fixture_json, territory):
+    http = FakeHttp({"/query": fixture_json("arcgis_query.json")})
+    rows = arcgis_permits.sample_features(http, territory.permit_layers[0], 2)
+    assert rows[0]["applicantName"] == "Greiner Construction"
+    assert http.calls[0][2]["resultRecordCount"] == 2
 
 
 def test_permits_skip_when_url_blank(territory, profile):

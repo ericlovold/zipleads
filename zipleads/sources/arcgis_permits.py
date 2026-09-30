@@ -116,6 +116,21 @@ def layer_fields(http: Http, layer: PermitLayer) -> list[dict]:
     return meta.get("fields", [])
 
 
+def sample_features(http: Http, layer: PermitLayer, count: int) -> list[dict]:
+    """Most recent raw records, for the `probe --sample` command."""
+    page = http.get_json(
+        f"{layer.url}/query",
+        params={
+            "where": "1=1",
+            "outFields": "*",
+            "orderByFields": f"{layer.fields.date} DESC",
+            "resultRecordCount": count,
+            "f": "json",
+        },
+    )
+    return [f.get("attributes", {}) for f in page.get("features", [])]
+
+
 def _epoch_ms_to_iso(value) -> str:
     if value in (None, ""):
         return ""
@@ -162,7 +177,7 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
             work_type,
             description,
             occupancy,
-            type_fields=(permit_type, occupancy),
+            type_fields=(permit_type, work_type, occupancy),
         ):
             continue
         permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""

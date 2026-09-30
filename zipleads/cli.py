@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -45,6 +46,7 @@ def _parser() -> argparse.ArgumentParser:
 
     pr = sub.add_parser("probe", help="print a permit layer's field names")
     pr.add_argument("layer", help="permit layer name from the territory file")
+    pr.add_argument("--sample", type=int, default=0, help="also print N most recent raw records")
 
     sub.add_parser("stats", help="counts by source and submission state")
 
@@ -111,6 +113,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         for f in arcgis_permits.layer_fields(http, layer):
             print(f"{f.get('name'):40} {f.get('type', '')}")
+        if args.sample:
+            for attrs in arcgis_permits.sample_features(http, layer, args.sample):
+                print("---")
+                print(json.dumps(attrs, indent=1, default=str))
         return 0
 
     store = Store(settings.db_path)
