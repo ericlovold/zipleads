@@ -202,3 +202,106 @@ def test_enrich_with_zoominfo_enabled(make_settings, territory, profile, fixture
     assert row["contact_email"] == "sam@northstardental.example"
     assert row["phone"] == "651-555-0100"  # Places phone kept; ZoomInfo phone only fills gaps
     assert row["score"] == 40 + 10 + 10
+
+
+def test_find_at_address_filters_to_same_street_number():
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "a",
+                        "displayName": {"text": "Vertical Endeavors"},
+                        "formattedAddress": "575 9th St SE, Minneapolis, MN 55414",
+                    },
+                    {
+                        "id": "b",
+                        "displayName": {"text": "Nearby Cafe"},
+                        "formattedAddress": "601 9th St SE, Minneapolis, MN 55414",
+                    },
+                ]
+            }
+        }
+    )
+    hits = places_details.find_at_address(http, "K", "575 9TH ST SE", "Minneapolis", "MN")
+    assert [h.name for h in hits] == ["Vertical Endeavors"]
+    assert places_details.find_at_address(http, "K", "", "Minneapolis", "MN") == []
+
+
+def test_enrich_resolves_address_only_lead_to_one_business(make_settings, territory, profile):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "ChIJsoccer",
+                        "displayName": {"text": "Northside Soccer Center"},
+                        "formattedAddress": "575 9th St SE, Minneapolis, MN 55414",
+                    },
+                ]
+            },
+            "/v1/places/ChIJsoccer": {
+                "nationalPhoneNumber": "612-555-0100",
+                "websiteUri": "https://ns.example",
+            },
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ctx.store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="permit:remodel",
+            company_name="",
+            applicant="Steiner Construction",
+            address="575 9TH ST SE",
+            city="Minneapolis",
+            zip="55414",
+        )
+    )
+    report = enrich(ctx, limit=10)
+    assert report.companies_found == 1 and report.phones_found == 1
+    row = ctx.store.all_leads()[0]
+    assert row["company_name"] == "Northside Soccer Center"
+    assert row["norm_name"] == "northside soccer center"
+    assert row["phone"] == "612-555-0100"
+    assert row["dedupe_key"].startswith("@575 9th st se")  # key is stable; the site is the lead
+
+
+def test_enrich_lists_multiple_businesses_in_description(make_settings, territory, profile):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "a",
+                        "displayName": {"text": "Suite 100 Dental"},
+                        "formattedAddress": "60 6th St S, Minneapolis, MN 55402",
+                    },
+                    {
+                        "id": "b",
+                        "displayName": {"text": "Tower Law"},
+                        "formattedAddress": "60 6th St S, Minneapolis, MN 55402",
+                    },
+                ]
+            }
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ctx.store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="permit:x",
+            company_name="",
+            address="60 6TH ST S",
+            city="Minneapolis",
+            zip="55402",
+            description="HVAC",
+        )
+    )
+    report = enrich(ctx, limit=10)
+    assert report.companies_found == 0
+    row = ctx.store.all_leads()[0]
+    assert row["company_name"] == ""
+    assert row["description"].startswith("Places lists here: Suite 100 Dental; Tower Law | HVAC")

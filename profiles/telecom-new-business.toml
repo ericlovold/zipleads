@@ -63,7 +63,8 @@ multi_site_bonus = 30
 # Size tiers on the territory's value field: [minimum, bonus]. For Minneapolis that
 # field is the permit FEE (no valuation published): a boiler swap is ~$85, a floor-wide
 # tenant improvement is thousands. Provisional; recalibrate from `zipleads stats`.
-value_tiers = [[500, 5], [2000, 10], [10000, 20]]
+# Live Minneapolis fees 2026-09-30: p50 $912, p75 $6.7k, p90 $51k, max $452k.
+value_tiers = [[500, 5], [2000, 10], [10000, 20], [50000, 30]]
 phone_bonus = 10
 contact_bonus = 10
 news_only_penalty = -5

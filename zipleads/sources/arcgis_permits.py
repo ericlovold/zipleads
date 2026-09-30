@@ -21,6 +21,9 @@ from zipleads.normalize import extract_zip
 
 PAGE_SIZE = 1000
 
+# IBC occupancy groups R-1..R-4 are residential (hotels are R-1, apartments R-2).
+_RESIDENTIAL_OCCUPANCY = re.compile(r"\boccupancy:?\s*(?:group\s*)?r-?[1-4]\b", re.IGNORECASE)
+
 # "tenant improvement for Northstar Dental, suite 300" -> "Northstar Dental".
 # Stops at punctuation or a location word. Case-insensitive because permit
 # comments arrive in every case imaginable.
@@ -157,6 +160,8 @@ def wanted(profile: Profile, *texts: str, type_fields: tuple[str, ...] = ()) -> 
     if profile.permit_exclude_types and _tokens(*type_fields) & set(profile.permit_exclude_types):
         return False
     hay = " ".join(t.lower() for t in texts if t)
+    if _RESIDENTIAL_OCCUPANCY.search(hay):
+        return False
     if profile.permit_include_terms and not any(t in hay for t in profile.permit_include_terms):
         return False
     return not any(t in hay for t in profile.permit_exclude_terms)

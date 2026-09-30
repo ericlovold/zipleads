@@ -12,6 +12,7 @@ from zipleads.enrich.zoominfo import ZoomInfoClient
 from zipleads.geocode import Geocoder
 from zipleads.http import Http
 from zipleads.models import Lead
+from zipleads.normalize import normalize_name
 from zipleads.score import score_lead
 from zipleads.segments import excluded_by, flags_for
 from zipleads.sources import arcgis_permits, google_news, places_future
@@ -147,6 +148,7 @@ def ingest(ctx: Context, sources: tuple[str, ...]) -> IngestReport:
 class EnrichReport:
     attempted: int = 0
     phones_found: int = 0
+    companies_found: int = 0  # address-only leads that Places resolved to one business
     contacts_found: int = 0
     zoominfo_skipped: bool = False
     errors: dict[str, str] = field(default_factory=dict)
@@ -179,9 +181,30 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
         report.attempted += 1
         updates: dict[str, str] = {}
         try:
+            company_name = row["company_name"]
+            place_id = _place_id_from_raw(ctx.store, key)
+            if settings.places_enabled and not company_name and row["address"]:
+                hits = places_details.find_at_address(
+                    ctx.http,
+                    settings.google_places_api_key,
+                    row["address"],
+                    row["city"],
+                    row["state"],
+                )
+                if len(hits) == 1:
+                    company_name = hits[0].name
+                    place_id = hits[0].place_id
+                    updates["company_name"] = company_name
+                    updates["norm_name"] = normalize_name(company_name)
+                    report.companies_found += 1
+                elif hits:
+                    names = "; ".join(h.name for h in hits)
+                    updates["description"] = f"Places lists here: {names} | {row['description']}"[
+                        :500
+                    ]
             if settings.places_enabled and not row["phone"]:
-                place_id = _place_id_from_raw(ctx.store, key) or places_details.find_place_id(
-                    ctx.http, settings.google_places_api_key, row["company_name"], row["address"]
+                place_id = place_id or places_details.find_place_id(
+                    ctx.http, settings.google_places_api_key, company_name, row["address"]
                 )
                 contact = places_details.fetch_contact(
                     ctx.http, settings.google_places_api_key, place_id
@@ -192,10 +215,8 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                 if contact.website:
                     updates["website"] = contact.website
             website = updates.get("website") or row["website"]
-            if zoominfo and not row["contact_email"]:
-                person = zoominfo.best_contact(
-                    row["company_name"], website, ctx.profile.contact_titles
-                )
+            if zoominfo and company_name and not row["contact_email"]:
+                person = zoominfo.best_contact(company_name, website, ctx.profile.contact_titles)
                 if person and (person.email or person.name):
                     updates["contact_name"] = person.name
                     updates["contact_title"] = person.title

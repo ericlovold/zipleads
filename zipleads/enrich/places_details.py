@@ -19,6 +19,13 @@ DETAILS_MASK = "id,nationalPhoneNumber,websiteUri,businessStatus"
 
 
 @dataclass
+class PlaceHit:
+    place_id: str
+    name: str
+    address: str
+
+
+@dataclass
 class Contact:
     place_id: str = ""
     phone: str = ""
@@ -30,6 +37,40 @@ def _similar(a: str, b: str) -> bool:
     if not na or not nb:
         return False
     return na in nb or nb in na or na.split()[0] == nb.split()[0]
+
+
+def _street_key(address: str) -> str:
+    """'575 9TH ST SE' -> '575 9th' : number plus first street token, for matching."""
+    parts = normalize_name(address).split()
+    return " ".join(parts[:2])
+
+
+def find_at_address(
+    http: Http, api_key: str, address: str, city: str, state: str, limit: int = 5
+) -> list[PlaceHit]:
+    """Businesses Places lists at a street address. Used when a permit names no tenant."""
+    if not address:
+        return []
+    query = ", ".join(x for x in (address, city, state) if x)
+    page = http.post_json(
+        SEARCH_URL,
+        {"textQuery": query, "pageSize": limit},
+        headers={"X-Goog-Api-Key": api_key, "X-Goog-FieldMask": SEARCH_MASK},
+    )
+    want = _street_key(address)
+    hits = []
+    for p in page.get("places", []):
+        formatted = p.get("formattedAddress", "")
+        if want and _street_key(formatted) != want:
+            continue  # a nearby place, not this address
+        hits.append(
+            PlaceHit(
+                place_id=p.get("id", ""),
+                name=(p.get("displayName") or {}).get("text", ""),
+                address=formatted,
+            )
+        )
+    return hits
 
 
 def find_place_id(http: Http, api_key: str, company_name: str, address: str) -> str:

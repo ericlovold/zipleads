@@ -172,6 +172,7 @@ def main(argv: list[str] | None = None) -> int:
             r = pipeline.enrich(ctx, args.limit)
             print(
                 f"attempted={r.attempted} phones_found={r.phones_found} "
+                f"companies_found={r.companies_found} "
                 f"contacts_found={r.contacts_found} zoominfo_skipped={r.zoominfo_skipped}"
             )
             if r.errors:
