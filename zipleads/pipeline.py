@@ -115,7 +115,11 @@ def _run_source(ctx: Context, name: str, report: IngestReport) -> None:
             return
         if name == "news":
             leads = google_news.fetch_news(
-                ctx.http, ctx.matcher, ctx.profile.news_terms, ctx.settings.ingest_days
+                ctx.http,
+                ctx.matcher,
+                ctx.profile.news_terms,
+                ctx.settings.ingest_days,
+                ctx.profile.news_exclude_terms,
             )
         elif name == "places":
             if not ctx.settings.places_enabled:

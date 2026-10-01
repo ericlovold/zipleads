@@ -132,11 +132,18 @@ def parse_feed(xml_text: str) -> list[dict]:
 
 
 def items_to_leads(
-    items: list[dict], matcher: TerritoryMatcher, query_city: str, state: str
+    items: list[dict],
+    matcher: TerritoryMatcher,
+    query_city: str,
+    state: str,
+    exclude_terms: tuple[str, ...] = (),
 ) -> list[Lead]:
     leads: list[Lead] = []
     for it in items:
         title = it["title"]
+        lowered = f"{title} {it.get('outlet', '')}".lower()
+        if any(term in lowered for term in exclude_terms):
+            continue
         # "Minneapolis-based X relocating to Woodbury": the origin is not the lead's city.
         city = matcher.match_city(_BASED_IN.sub("", clean_title(title))) or query_city
         company = extract_company(title)
@@ -157,7 +164,11 @@ def items_to_leads(
 
 
 def fetch_news(
-    http: Http, matcher: TerritoryMatcher, terms: tuple[str, ...], days: int
+    http: Http,
+    matcher: TerritoryMatcher,
+    terms: tuple[str, ...],
+    days: int,
+    exclude_terms: tuple[str, ...] = (),
 ) -> list[Lead]:
     state = matcher.territory.state
     leads: list[Lead] = []
@@ -166,5 +177,5 @@ def fetch_news(
         xml_text = http.get_text(feed_url(build_query(terms, city, state, days)))
         items = [i for i in parse_feed(xml_text) if i["link"] not in seen_links]
         seen_links.update(i["link"] for i in items)
-        leads.extend(items_to_leads(items, matcher, city, state))
+        leads.extend(items_to_leads(items, matcher, city, state, exclude_terms))
     return leads

@@ -104,3 +104,16 @@ def test_reset_enrichment_only_touches_unsubmitted_without_phone(tmp_path):
     store.mark_submitted(k3)
     assert store.reset_enrichment() == 1
     assert [r["dedupe_key"] for r in store.needs_enrichment(10)] == [k1]
+
+
+def test_unsubmitted_hides_unparsed_news_only_by_default(tmp_path):
+    store = Store(tmp_path / "t.sqlite")
+    store.upsert(_lead(company_name="Real Co", source="google_news", signal="news:headline"))
+    store.upsert(_lead(company_name="Junk headline", source="google_news", signal="news:unparsed"))
+    k, _ = store.upsert(
+        _lead(company_name="Corroborated", source="google_news", signal="news:unparsed")
+    )
+    store.upsert(_lead(company_name="Corroborated", source="mpls_permits", signal="permit:x"))
+    names = [r["company_name"] for r in store.unsubmitted()]
+    assert names == ["Corroborated", "Real Co"] or set(names) == {"Corroborated", "Real Co"}
+    assert len(store.unsubmitted(include_unparsed=True)) == 3

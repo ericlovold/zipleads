@@ -30,7 +30,7 @@ def test_segment_exclude_and_flags(profile):
     assert flags_for(profile, _lead("Hilton Garden Inn", primary_type="hotel")) == [
         "flag:deprioritized:hotel"
     ]
-    assert flags_for(profile, _lead("Smith Law Office")) == ["flag:boost:office"]
+    assert flags_for(profile, _lead("Smith Law Office")) == ["flag:boost:law office"]
     assert flags_for(profile, _lead("Joe's Coffee")) == []
 
 

@@ -38,6 +38,7 @@ def _parser() -> argparse.ArgumentParser:
     x = sub.add_parser("export", help="write unsubmitted leads to CSV, best first")
     x.add_argument("--out", default="out/leads.csv")
     x.add_argument("--limit", type=int, default=None)
+    x.add_argument("--include-unparsed", action="store_true", help="also export headline-only news")
 
     m = sub.add_parser("mark-submitted", help="record that leads were handed off")
     m.add_argument("keys", nargs="+")
@@ -46,6 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     sd = sub.add_parser("send", help="export unsubmitted leads and email the CSV to MAIL_TO")
     sd.add_argument("--out", default="out/leads.csv")
     sd.add_argument("--limit", type=int, default=None)
+    sd.add_argument("--include-unparsed", action="store_true", help="also send headline-only news")
     sd.add_argument("--dry-run", action="store_true", help="build the email, print it, do not send")
 
     pr = sub.add_parser("probe", help="print a permit layer's field names")
@@ -185,7 +187,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.cmd == "export":
-            n = write_csv(store.unsubmitted(args.limit), profile.export_columns, args.out)
+            rows = store.unsubmitted(args.limit, include_unparsed=args.include_unparsed)
+            n = write_csv(rows, profile.export_columns, args.out)
             print(f"wrote {n} leads to {args.out}")
             return 0
         if args.cmd == "mark-submitted":
@@ -196,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"marked {len(args.keys)} submitted")
             return 0
         if args.cmd == "send":
-            rows = store.unsubmitted(args.limit)
+            rows = store.unsubmitted(args.limit, include_unparsed=args.include_unparsed)
             write_csv(rows, profile.export_columns, args.out)
             msg = mail.build_message(settings, rows, Path(args.out), territory.name)
             if args.dry_run:

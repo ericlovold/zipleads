@@ -242,8 +242,17 @@ class Store:
             "SELECT * FROM leads ORDER BY score DESC, first_seen ASC"
         ).fetchall()
 
-    def unsubmitted(self, limit: int | None = None) -> list[sqlite3.Row]:
-        sql = "SELECT * FROM leads WHERE submitted_at = '' ORDER BY score DESC, first_seen ASC"
+    # A headline the parser could not name a company from, with nothing else
+    # corroborating it. Kept in the database, hidden from exports by default.
+    _UNPARSED_ONLY = "(sources = 'google_news' AND instr(signals, 'news:headline') = 0)"
+
+    def unsubmitted(
+        self, limit: int | None = None, include_unparsed: bool = False
+    ) -> list[sqlite3.Row]:
+        where = "submitted_at = ''"
+        if not include_unparsed:
+            where += f" AND NOT {self._UNPARSED_ONLY}"
+        sql = f"SELECT * FROM leads WHERE {where} ORDER BY score DESC, first_seen ASC"
         if limit:
             sql += f" LIMIT {int(limit)}"
         return self.conn.execute(sql).fetchall()

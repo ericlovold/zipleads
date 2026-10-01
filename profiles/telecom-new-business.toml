@@ -9,6 +9,18 @@ terms = [
   '"grand opening"', '"new location"', '"is opening"', '"to open"',
   "relocating", '"new headquarters"', '"signed a lease"', "expanding",
 ]
+# Headlines (and outlets) that match the terms but are never a business lead.
+# Seen in the first live week: high-school sports, pro sports, transit, politics.
+exclude_terms = [
+  "maxpreps", "varsity", "girls soccer", "boys soccer", "volleyball", "football", "hockey",
+  "wild ", "vikings", "twins ", "timberwolves", "lynx", "frost", "tommies", "gophers", "pwhl",
+  "season opener", "set to open the season", "open season", "opening round", "opening day",
+  "light rail", "light-rail", "green line", "blue line", "metro transit", "amtrak", "bridge",
+  "waterfowl", "deer season", "fishing", "hunting", "city council", "candidates", "election",
+  "market forecast", "market size", "market to expand", "patent", "ranking at",
+  "surgery for", "undergoes surgery", "after surgery", "skull", "injury",
+  "opening for ", "concert", "tour dates", "museum", "church", "churches",
+]
 
 [permits]
 include_terms = [
@@ -18,12 +30,15 @@ include_terms = [
 ]
 # Coded permit-type / occupancy values that mean housing. Matched as whole tokens.
 # Minneapolis: Comm (commercial), MFD (multi-family), TFD (two-family), SFD, Res.
-exclude_types = ["mfd", "tfd", "sfd", "res", "existres", "residential", "r2", "r3"]
+exclude_types = ["mfd", "tfd", "sfd", "3to4", "res", "existres", "residential", "r2", "r3"]
 # Trade-only work that is not a move-in signal, seen in the first live Minneapolis run.
 exclude_terms = [
   "single family", "single-family", "residential", "duplex", "sfd", "adu",
   "roofwind", "reroof", "re-roof", "roofing", "antenna", "demolition", "wrecking",
   "solar", "siding", "fence", "signage", "parking lot", "elevator",
+  # Repairs to an occupied building are not a move-in.
+  "water damage", "fire damage", "storm damage", "disaster", "restoration",
+  "repair", "replace existing", "replacement of", "like for like", "like-for-like",
 ]
 
 [places]
@@ -52,8 +67,9 @@ deprioritize_penalty = -20
 # $140 for "just internet").
 boost = [
   "tenant improvement", "tenant finish", "tenant build", "buildout", "build-out", "build out",
-  "new tenant", "office", "clinic", "medical", "surgery", "law", "attorney", "warehouse",
-  "manufactur", "logistics", "engineering", "financial", "insurance", "accounting",
+  "new tenant", "office", "clinic", "medical center", "medical office", "surgery center",
+  "surgical", "law firm", "law office", "attorney", "warehouse", "manufactur", "logistics",
+  "engineering", "financial", "insurance", "accounting",
 ]
 boost_bonus = 10
 

@@ -175,3 +175,10 @@ def test_requests_http_retries_server_errors(monkeypatch):
     except requests.HTTPError:
         pass
     assert calls["n"] == 1
+
+
+def test_news_exclude_terms_drop_headlines_before_storage(fixture_text, matcher):
+    items = google_news.parse_feed(fixture_text("google_news.xml"))
+    leads = google_news.items_to_leads(items, matcher, "Eagan", "MN", exclude_terms=("festival",))
+    assert "Fall festival draws crowds to Eagan park" not in [ld.company_name for ld in leads]
+    assert len(leads) == 3

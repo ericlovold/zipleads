@@ -69,10 +69,19 @@ def test_matcher_city_matching(matcher):
     assert matcher.search_areas()[0].endswith(", MN")
 
 
+def test_territory_labels_are_real_cities(territory):
+    for city in territory.cities():
+        assert "/" not in city and "(" not in city, city
+    assert "University of Minnesota" not in territory.cities()
+    assert territory.zips["55455"] == "Minneapolis" and territory.zips["55155"] == "St. Paul"
+
+
 def test_profile_loads(profile):
     assert profile.source_weights["places_future"] == 40
     assert "commercial" in profile.permit_include_terms
     assert profile.contact_titles[0] == "owner"
+    assert "maxpreps" in profile.news_exclude_terms
+    assert "3to4" in profile.permit_exclude_types
     assert profile.export_columns[:4] == ("contact_name", "company_name", "contact_email", "phone")
 
 
