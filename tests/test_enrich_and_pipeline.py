@@ -422,3 +422,40 @@ def test_news_lead_gets_phone_and_address_by_name_and_city(make_settings, territ
     assert row["phone"] == "952-555-0123"
     assert row["address"].startswith("3900 Excelsior Blvd") and row["zip"] == "55416"
     assert http.calls[0][2]["textQuery"] == "Mission Cuts St. Louis Park, MN"
+
+
+def test_name_lookup_outside_territory_is_discarded(make_settings, territory, profile):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "ChIJironton",
+                        "displayName": {"text": "Hudson's"},
+                        "types": ["store"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "208 Curtis Ave, Ironton, MN 56455, USA",
+                    }
+                ]
+            },
+            "/v1/places/ChIJironton": {"nationalPhoneNumber": "218-555-0100"},
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ctx.store.upsert(
+        Lead(
+            source="google_news",
+            signal="news:headline",
+            company_name="Hudson's Hughes",
+            city="Hudson",
+            state="MN",
+        )
+    )
+    report = enrich(ctx, limit=5)
+    assert report.phones_found == 0
+    row = ctx.store.all_leads()[0]
+    assert row["phone"] == "" and row["address"] == "" and row["zip"] == ""
+    assert not any(
+        "/v1/places/" in u for _, u, _ in http.calls
+    )  # no paid details call on a bad match

@@ -233,6 +233,20 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                     hit = places_details.find_by_name(
                         ctx.http, settings.google_places_api_key, company_name, where
                     )
+                    if (
+                        hit
+                        and hit.address
+                        and not in_territory(
+                            Lead(
+                                source="places",
+                                signal="x",
+                                company_name=company_name,
+                                zip=extract_zip(hit.address),
+                            ),
+                            ctx.matcher,
+                        )
+                    ):
+                        hit = None  # same name, wrong town (e.g. "Hudson" matched Ironton)
                     if hit:
                         place_id = hit.place_id
                         if not row["address"] and hit.address:

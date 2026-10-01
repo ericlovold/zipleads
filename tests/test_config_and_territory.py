@@ -19,6 +19,7 @@ def test_normalize_address_abbreviates():
 
 def test_extract_zip_and_dedupe_key():
     assert extract_zip("Eagan, MN 55121-1234") == "55121"
+    assert extract_zip("11361 Fountains Dr, Maple Grove, MN 55369, USA") == "55369"
     assert extract_zip("PO Box 123456") == ""
     assert dedupe_key("Northstar Dental LLC", "55121") == "northstar dental|55121"
     assert dedupe_key("Northstar Dental", "", city="Eagan") == "northstar dental|eagan"

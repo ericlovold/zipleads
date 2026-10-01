@@ -72,9 +72,13 @@ def normalize_address(address: str) -> str:
 
 
 def extract_zip(text: str) -> str:
-    """First 5-digit zip in the text, or empty string."""
-    m = _ZIP_RE.search(text or "")
-    return m.group(1) if m else ""
+    """The zip in an address string, or empty string.
+
+    Takes the last 5-digit run so "11361 Fountains Dr, Maple Grove, MN 55369"
+    yields 55369, not the street number.
+    """
+    matches = _ZIP_RE.findall(text or "")
+    return matches[-1] if matches else ""
 
 
 def dedupe_key(company_name: str, zip_code: str, city: str = "", address: str = "") -> str:

@@ -7,6 +7,7 @@ an Enterprise-SKU mask limited to phone and website.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from zipleads.http import Http
@@ -79,9 +80,24 @@ def is_business(place: dict) -> bool:
         return False
     name = (place.get("displayName") or {}).get("text", "")
     formatted = place.get("formattedAddress", "")
+    if _looks_like_address(name):
+        return False
     if name and formatted and _street_key(name) == _street_key(formatted):
         return False
     return True
+
+
+_ADDRESS_NAME = re.compile(
+    r"^\d{1,6}\s+(?:[NSEW]{1,2}\s+)?[\w'.-]+(?:\s+[\w'.-]+)*\s+"
+    r"(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|"
+    r"pkwy|parkway|hwy|highway|way|trail|trl|cir|circle)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_address(name: str) -> bool:
+    """'1500 Washington Ave S, Minneapolis, MN 55454' is an address, not a business."""
+    return bool(_ADDRESS_NAME.match((name or "").strip()))
 
 
 def _street_key(address: str) -> str:
@@ -153,8 +169,8 @@ def find_near(
         if not is_business(p):
             continue
         formatted = p.get("formattedAddress", "")
-        if want and _street_key(formatted) and _street_key(formatted) != want:
-            continue  # next door, not this building
+        if not formatted or (want and _street_key(formatted) != want):
+            continue  # next door, or no address to confirm it is this building
         hits.append(
             PlaceHit(
                 place_id=p.get("id", ""),
