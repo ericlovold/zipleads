@@ -366,9 +366,10 @@ def test_enrich_uses_permit_coordinates_when_present(
                         "types": ["dentist"],
                         "businessStatus": "OPERATIONAL",
                         "formattedAddress": "250 Marquette Ave, Minneapolis, MN 55401",
-                    },
+                    }
                 ]
             },
+            "places:searchText": {"places": []},  # fallback for the permit with no coordinates
             "/v1/places/ChIJshell": {"nationalPhoneNumber": "612-555-0199"},
         }
     )
@@ -377,5 +378,8 @@ def test_enrich_uses_permit_coordinates_when_present(
     # The Greiner permit already names its tenant; force the address-only path by blanking it.
     ctx.store.update_fields("northstar dental|minneapolis", company_name="", norm_name="")
     report = enrich(ctx, limit=5)
-    assert report.companies_found == 1
-    assert not any("searchText" in u for _, u, _ in http.calls)  # coordinates beat text search
+    assert report.companies_found == 1 and report.errors == {}
+    urls = [u for _, u, _ in http.calls]
+    assert any("searchNearby" in u for u in urls)  # the lead with coordinates used nearby search
+    row = ctx.store.get("northstar dental|minneapolis")
+    assert row["company_name"] == "Northstar Dental" and row["phone"] == "612-555-0199"
