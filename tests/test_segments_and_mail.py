@@ -207,3 +207,56 @@ def test_send_dry_run_and_missing_smtp(tmp_path, monkeypatch, capsys):
     assert "Subject: zipleads: 0 new leads" in capsys.readouterr().out
     assert Path(out).exists()
     assert main(["send", "--out", str(out)]) == 2
+
+
+def test_send_translates_dns_failure(make_settings):
+    import socket
+
+    settings = make_settings()
+    settings = settings.__class__(
+        **{
+            **settings.__dict__,
+            "smtp_host": "smtp.gmail.com>",
+            "mail_from": "me@example",
+            "mail_to": ("you@example",),
+        }
+    )
+
+    class BadDns:
+        def __init__(self, host, port):
+            raise socket.gaierror(8, "nodename nor servname provided, or not known")
+
+    msg = mail.EmailMessage()
+    try:
+        mail.send(settings, msg, smtp_factory=BadDns)
+    except mail.MailError as exc:
+        assert "SMTP_HOST='smtp.gmail.com>'" in str(exc)
+    else:
+        raise AssertionError("expected MailError")
+
+
+def test_mail_body_shows_applicant_for_address_only_sites(make_settings, tmp_path):
+    settings = make_settings()
+    settings = settings.__class__(
+        **{**settings.__dict__, "mail_from": "me@example", "mail_to": ("you@example",)}
+    )
+    store = Store(settings.db_path)
+    store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="permit:x",
+            company_name="",
+            applicant="Steiner Construction / HILLCREST LLLP",
+            address="575 9TH ST SE",
+            city="Minneapolis",
+            zip="55414",
+        )
+    )
+    csv_path = tmp_path / "l.csv"
+    csv_path.write_text("h\n")
+    body = (
+        mail.build_message(settings, store.unsubmitted(), csv_path, "T")
+        .get_body(preferencelist=("plain",))
+        .get_content()
+    )
+    assert "(site) via Steiner Construction / HILLCREST LLLP  |  575 9TH ST SE" in body

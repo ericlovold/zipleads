@@ -132,3 +132,46 @@ def test_places_future_fetch_cost_shape(fixture_json, matcher):
     assert len(leads) == 1
     assert len(http.calls) == len(matcher.search_areas()) * 2  # one page per area per query
     assert "nationalPhoneNumber" not in places_future.FIELD_MASK
+
+
+def test_requests_http_retries_server_errors(monkeypatch):
+    import requests
+
+    from zipleads.http import RequestsHttp
+
+    calls = {"n": 0}
+
+    class Resp:
+        def __init__(self, code):
+            self.status_code = code
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(response=self)
+
+        def json(self):
+            return {"ok": True}
+
+    def fake_request(method, url, **kwargs):
+        calls["n"] += 1
+        return Resp(502 if calls["n"] < 3 else 200)
+
+    sleeps = []
+    http = RequestsHttp(retries=3, sleep=sleeps.append)
+    monkeypatch.setattr(http.session, "request", fake_request)
+    assert http.get_json("https://x.example") == {"ok": True}
+    assert calls["n"] == 3 and len(sleeps) == 2
+
+    # 4xx is not retried.
+    calls["n"] = 0
+
+    def fake_404(method, url, **kwargs):
+        calls["n"] += 1
+        return Resp(404)
+
+    monkeypatch.setattr(http.session, "request", fake_404)
+    try:
+        http.get_json("https://x.example")
+    except requests.HTTPError:
+        pass
+    assert calls["n"] == 1

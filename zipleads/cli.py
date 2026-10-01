@@ -205,7 +205,11 @@ def main(argv: list[str] | None = None) -> int:
             if not settings.mail_enabled:
                 print("SMTP_HOST, MAIL_FROM and MAIL_TO must be set to send", file=sys.stderr)
                 return 2
-            mail.send(settings, msg)
+            try:
+                mail.send(settings, msg)
+            except mail.MailError as exc:
+                print(f"send failed: {exc}", file=sys.stderr)
+                return 1
             print(f"sent {len(rows)} leads to {', '.join(settings.mail_to)}")
             return 0
         if args.cmd == "stats":

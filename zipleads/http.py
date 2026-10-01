@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Protocol
 
 import requests
 
+log = logging.getLogger("zipleads.http")
+
 DEFAULT_TIMEOUT = 30
+RETRIES = 3
+BACKOFF_SECONDS = 1.5
 USER_AGENT = "zipleads/0.1 (+lead pipeline; contact via repo owner)"
 
 
@@ -21,22 +27,41 @@ class Http(Protocol):
 
 
 class RequestsHttp:
-    def __init__(self, timeout: int = DEFAULT_TIMEOUT):
+    """requests.Session with retry on 5xx and connection errors (not on 4xx)."""
+
+    def __init__(self, timeout: int = DEFAULT_TIMEOUT, retries: int = RETRIES, sleep=time.sleep):
         self.session = requests.Session()
         self.session.headers["User-Agent"] = USER_AGENT
         self.timeout = timeout
+        self.retries = retries
+        self.sleep = sleep
+
+    def _send(self, method: str, url: str, **kwargs) -> requests.Response:
+        last: Exception | None = None
+        for attempt in range(self.retries):
+            try:
+                r = self.session.request(method, url, timeout=self.timeout, **kwargs)
+                if r.status_code >= 500:
+                    raise requests.HTTPError(f"{r.status_code} Server Error for {url}", response=r)
+                r.raise_for_status()
+                return r
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                last = exc
+            except requests.HTTPError as exc:
+                if exc.response is None or exc.response.status_code < 500:
+                    raise
+                last = exc
+            delay = BACKOFF_SECONDS * (2**attempt)
+            log.warning("%s %s failed (%s); retry in %.1fs", method, url, last, delay)
+            self.sleep(delay)
+        assert last is not None
+        raise last
 
     def get_json(self, url: str, params: dict | None = None, headers: dict | None = None) -> Any:
-        r = self.session.get(url, params=params, headers=headers, timeout=self.timeout)
-        r.raise_for_status()
-        return r.json()
+        return self._send("GET", url, params=params, headers=headers).json()
 
     def get_text(self, url: str, params: dict | None = None, headers: dict | None = None) -> str:
-        r = self.session.get(url, params=params, headers=headers, timeout=self.timeout)
-        r.raise_for_status()
-        return r.text
+        return self._send("GET", url, params=params, headers=headers).text
 
     def post_json(self, url: str, body: dict, headers: dict | None = None) -> Any:
-        r = self.session.post(url, json=body, headers=headers, timeout=self.timeout)
-        r.raise_for_status()
-        return r.json()
+        return self._send("POST", url, json=body, headers=headers).json()
