@@ -2,11 +2,15 @@ from tests.conftest import FakeHttp
 from zipleads.sources import arcgis_permits, google_news, places_future
 
 
-def test_permits_keep_wanted_only(fixture_json, territory, profile):
+def test_permits_are_parsed_and_sorted(fixture_json, territory, profile):
     layer = territory.permit_layers[0]
     leads = arcgis_permits.parse_features(
         fixture_json("arcgis_query.json")["features"], layer, profile
     )
+    # Every permit with a site comes back sorted; the pipeline decides what to drop.
+    assert [ld.kind for ld in leads] == ["new_occupant", "residential", "new_occupant"]
+    assert all(ld.raw["kind_reasons"] for ld in leads)
+    leads = [ld for ld in leads if ld.kind == "new_occupant"]
     # Company is the tenant named in the comments, or blank; the applicant is the contractor.
     assert [ld.company_name for ld in leads] == ["Northstar Dental", ""]
     assert [ld.applicant for ld in leads] == ["Greiner Construction", "Ryan Companies"]
@@ -38,22 +42,6 @@ def test_tenant_extraction():
     assert ex("") == ""
 
 
-def test_permit_exclude_types_are_whole_tokens(territory, profile):
-    from zipleads.sources.arcgis_permits import wanted
-
-    assert not wanted(
-        profile, "MFD", "Remodel", "kitchen remodel", type_fields=("MFD", "Commercial")
-    )
-    assert not wanted(profile, "TFD", "Remodel", "deck", type_fields=("TFD", "Res"))
-    # Trade permits: occupancy blank, housing code in the work type.
-    assert not wanted(
-        profile, "Plumbing", "Res", "basement bathroom", type_fields=("Plumbing", "Res", "")
-    )
-    assert wanted(
-        profile, "Comm", "Remodel", "restaurant build-out", type_fields=("Comm", "Commercial")
-    )
-
-
 def test_permit_applicant_person_is_appended(fixture_json, territory, profile):
     layer = territory.permit_layers[0]
     feats = fixture_json("arcgis_query.json")["features"][:1]
@@ -65,7 +53,7 @@ def test_permit_applicant_person_is_appended(fixture_json, territory, profile):
 def test_permits_paging_and_where_clause(fixture_json, territory, profile):
     http = FakeHttp({"/query": fixture_json("arcgis_query.json")})
     leads = arcgis_permits.fetch_permits(http, territory.permit_layers[0], profile, 7)
-    assert len(leads) == 2
+    assert len(leads) == 3  # includes the residential permit; dropping happens in the pipeline
     _, url, params = http.calls[0]
     assert url.endswith("CCS_Permits/FeatureServer/0/query")
     assert params["where"].startswith("issueDate >= TIMESTAMP '")

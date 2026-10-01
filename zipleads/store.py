@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS leads (
     evidence_url  TEXT NOT NULL DEFAULT '',
     description   TEXT NOT NULL DEFAULT '',
     value         REAL NOT NULL DEFAULT 0,
+    kind          TEXT NOT NULL DEFAULT '',
     score         INTEGER NOT NULL DEFAULT 0,
     first_seen    TEXT NOT NULL,
     last_seen     TEXT NOT NULL,
@@ -74,6 +75,10 @@ _MERGE_FIELDS = (
 )
 
 
+# When several permits land on one site, the strongest kind wins.
+_KIND_RANK = {"tenant_refresh": 1, "new_occupant": 2}
+
+
 def _now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
@@ -83,6 +88,16 @@ def _merge_list(existing: str, item: str) -> str:
     if item and item not in items:
         items.append(item)
     return ",".join(items)
+
+
+def _kind_filter(hide_kinds: tuple[str, ...]) -> str:
+    """SQL fragment hiding the given kinds. Kinds are a fixed vocabulary, never user text."""
+    from zipleads.sorter import KINDS
+
+    safe = [k for k in hide_kinds if k in KINDS]
+    if not safe:
+        return ""
+    return " AND kind NOT IN (" + ", ".join(f"'{k}'" for k in safe) + ")"
 
 
 class Store:
@@ -102,6 +117,7 @@ class Store:
         "submitted_ref": "TEXT NOT NULL DEFAULT ''",
         "status": "TEXT NOT NULL DEFAULT ''",
         "notes": "TEXT NOT NULL DEFAULT ''",
+        "kind": "TEXT NOT NULL DEFAULT ''",
     }
 
     def _migrate(self) -> None:
@@ -126,9 +142,9 @@ class Store:
                 """INSERT INTO leads (
                        dedupe_key, norm_name, company_name, applicant, address, city, state, zip,
                        phone, website, contact_name, contact_title, contact_email,
-                       sources, signals, signal_date, evidence_url, description, value,
+                       sources, signals, signal_date, evidence_url, description, value, kind,
                        first_seen, last_seen)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     key,
                     norm_name,
@@ -149,6 +165,7 @@ class Store:
                     lead.evidence_url,
                     lead.description,
                     lead.value,
+                    lead.kind,
                     now,
                     now,
                 ),
@@ -164,6 +181,8 @@ class Store:
                     updates[f] = incoming
             if lead.value > row["value"]:
                 updates["value"] = lead.value
+            if _KIND_RANK.get(lead.kind, 0) > _KIND_RANK.get(row["kind"], 0):
+                updates["kind"] = lead.kind  # a new-occupant permit outranks a refresh at the site
             sets = ", ".join(f"{k} = ?" for k in updates)
             cur.execute(f"UPDATE leads SET {sets} WHERE dedupe_key = ?", (*updates.values(), key))
             created = False
@@ -251,9 +270,12 @@ class Store:
     _UNPARSED_ONLY = "(sources = 'google_news' AND instr(signals, 'news:headline') = 0)"
 
     def unsubmitted(
-        self, limit: int | None = None, include_unparsed: bool = False
+        self,
+        limit: int | None = None,
+        include_unparsed: bool = False,
+        hide_kinds: tuple[str, ...] = (),
     ) -> list[sqlite3.Row]:
-        where = "submitted_at = '' AND status != 'junk'"
+        where = "submitted_at = '' AND status != 'junk'" + _kind_filter(hide_kinds)
         if not include_unparsed:
             where += f" AND NOT {self._UNPARSED_ONLY}"
         sql = f"SELECT * FROM leads WHERE {where} ORDER BY score DESC, first_seen ASC"
@@ -269,12 +291,14 @@ class Store:
         self.conn.commit()
         return cur.rowcount
 
-    def needs_enrichment(self, limit: int) -> list[sqlite3.Row]:
+    def needs_enrichment(self, limit: int, hide_kinds: tuple[str, ...] = ()) -> list[sqlite3.Row]:
         """Unsubmitted leads missing a phone or a contact, never enriched, best first."""
         return self.conn.execute(
             """SELECT * FROM leads
                WHERE submitted_at = '' AND status != 'junk' AND enriched_at = ''
-                 AND (phone = '' OR contact_email = '')
+                 AND (phone = '' OR contact_email = '')"""
+            + _kind_filter(hide_kinds)
+            + """
                ORDER BY score DESC, first_seen ASC LIMIT ?""",
             (int(limit),),
         ).fetchall()

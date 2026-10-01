@@ -1,8 +1,8 @@
 """Building permits from an ArcGIS FeatureServer layer.
 
-Each territory lists its own permit layers with their field names. The
-profile decides which permits count (include/exclude terms on permit type,
-work type, and description).
+Each territory lists its own permit layers with their field names. Every
+permit is sorted into a kind by zipleads.sorter; the pipeline decides what to
+keep based on the profile.
 
 A permit applicant is often the contractor, not the tenant. The lead still
 carries the address and the work description, which is enough to look the
@@ -18,11 +18,9 @@ from zipleads.config import PermitLayer, Profile
 from zipleads.http import Http
 from zipleads.models import Lead
 from zipleads.normalize import extract_zip
+from zipleads.sorter import sort_permit
 
 PAGE_SIZE = 1000
-
-# IBC occupancy groups R-1..R-4 are residential (hotels are R-1, apartments R-2).
-_RESIDENTIAL_OCCUPANCY = re.compile(r"\boccupancy:?\s*(?:group\s*)?r-?[1-4]\b", re.IGNORECASE)
 
 # "tenant improvement for Northstar Dental, suite 300" -> "Northstar Dental".
 # Stops at punctuation or a location word. Case-insensitive because permit
@@ -150,23 +148,6 @@ def _number(value) -> float:
         return 0.0
 
 
-def _tokens(*texts: str) -> set[str]:
-    return {tok for t in texts if t for tok in re.split(r"[^a-z0-9]+", t.lower()) if tok}
-
-
-def wanted(profile: Profile, *texts: str, type_fields: tuple[str, ...] = ()) -> bool:
-    """Profile filter. `type_fields` are coded fields (permit type, occupancy) matched
-    as whole tokens against exclude_types, so "Res" is caught but "restaurant" is not."""
-    if profile.permit_exclude_types and _tokens(*type_fields) & set(profile.permit_exclude_types):
-        return False
-    hay = " ".join(t.lower() for t in texts if t)
-    if _RESIDENTIAL_OCCUPANCY.search(hay):
-        return False
-    if profile.permit_include_terms and not any(t in hay for t in profile.permit_include_terms):
-        return False
-    return not any(t in hay for t in profile.permit_exclude_terms)
-
-
 def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -> list[Lead]:
     f = layer.fields
     leads: list[Lead] = []
@@ -176,15 +157,6 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         work_type = str(a.get(f.work_type) or "")
         description = str(a.get(f.description) or "")
         occupancy = str(a.get(f.occupancy) or "") if f.occupancy else ""
-        if not wanted(
-            profile,
-            permit_type,
-            work_type,
-            description,
-            occupancy,
-            type_fields=(permit_type, work_type, occupancy),
-        ):
-            continue
         permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""
         status = str(a.get(f.status) or "") if f.status else ""
         applicant = str(a.get(f.applicant) or "").strip()
@@ -194,6 +166,13 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         address = str(a.get(f.address) or "").strip()
         if not address:
             continue  # the site is the lead; a permit with no site is noise
+        verdict = sort_permit(
+            permit_type=permit_type,
+            work_type=work_type,
+            occupancy=occupancy,
+            description=description,
+            applicant=applicant,
+        )
         leads.append(
             Lead(
                 source=layer.name,
@@ -219,7 +198,10 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
                     if x
                 )[:500],
                 value=_number(a.get(f.value)),
+                kind=verdict.kind,
                 raw={
+                    "kind_confidence": verdict.confidence,
+                    "kind_reasons": list(verdict.reasons),
                     "attributes": a,
                     "value": a.get(f.value),
                     "lat": _number(a.get(f.latitude)) if f.latitude else 0.0,

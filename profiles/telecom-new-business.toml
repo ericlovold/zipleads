@@ -24,25 +24,11 @@ exclude_terms = [
   "manila times",
 ]
 
-[permits]
-include_terms = [
-  "commercial", "tenant", "build-out", "buildout", "build out", "remodel",
-  "office", "retail", "restaurant", "clinic", "warehouse", "new building",
-  "new construction", "alteration", "interior",
-]
-# Coded permit-type / occupancy values that mean housing. Matched as whole tokens.
-# Minneapolis: Comm (commercial), MFD (multi-family), TFD (two-family), SFD, Res.
-exclude_types = ["mfd", "tfd", "sfd", "3to4", "res", "existres", "residential", "r2", "r3"]
-# Trade-only work that is not a move-in signal, seen in the first live Minneapolis run.
-exclude_terms = [
-  "single family", "single-family", "residential", "duplex", "sfd", "adu",
-  "roofwind", "reroof", "re-roof", "roofing", "antenna", "demolition", "wrecking",
-  "solar", "siding", "fence", "signage", "parking lot", "elevator",
-  # Repairs to an occupied building are not a move-in.
-  "water damage", "fire damage", "storm damage", "disaster", "restoration",
-  "repair", "replace existing", "replacement of", "like for like", "like-for-like",
-  "replacing", "windows", "rooftop", "telecommunications equipment", "cell site", "generator",
-]
+[sorter]
+# Every permit is sorted into one kind (zipleads/sorter.py): new_occupant,
+# tenant_refresh, building_systems, residential. Only new_occupant is a lead.
+drop = ["residential", "building_systems"]  # never stored
+hide = ["tenant_refresh"]                    # stored, kept out of exports and enrichment
 
 [places]
 queries = ["opening soon", "coming soon"]

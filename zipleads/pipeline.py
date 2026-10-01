@@ -48,6 +48,7 @@ class IngestReport:
     merged: int = 0
     dropped_out_of_territory: int = 0
     dropped_by_segment: dict[str, int] = field(default_factory=dict)
+    dropped_by_kind: dict[str, int] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
 
 
@@ -76,6 +77,9 @@ def _rescore(ctx: Context, key: str) -> int:
 
 def _absorb(ctx: Context, leads: list[Lead], report: IngestReport) -> None:
     for lead in leads:
+        if lead.kind and lead.kind in ctx.profile.sorter_drop:
+            report.dropped_by_kind[lead.kind] = report.dropped_by_kind.get(lead.kind, 0) + 1
+            continue
         if not lead.zip and lead.address:
             lead.zip = ctx.geocoder.zip_for(lead.address, lead.city, lead.state)
         if not in_territory(lead, ctx.matcher):
@@ -214,7 +218,7 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
         if settings.zoominfo_enabled
         else None
     )
-    for row in ctx.store.needs_enrichment(limit):
+    for row in ctx.store.needs_enrichment(limit, hide_kinds=ctx.profile.sorter_hide):
         key = row["dedupe_key"]
         report.attempted += 1
         updates: dict[str, str] = {}

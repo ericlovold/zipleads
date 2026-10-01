@@ -79,6 +79,30 @@ Then fill in city labels (they drive news queries) and any ArcGIS permit
 layers for that area. Most large US cities publish permits on an ArcGIS Hub;
 the layer URL ends in `/FeatureServer/0`.
 
+## Permit sorter
+
+Every permit is sorted into one of four kinds by `zipleads/sorter.py`:
+
+| Kind | Meaning | Default |
+|---|---|---|
+| `new_occupant` | a business moving in, or a space readied for one | the lead |
+| `tenant_refresh` | the current occupant remodeling its own space | stored, hidden |
+| `building_systems` | HVAC, plumbing, roof, windows, antennas, repairs | dropped |
+| `residential` | homes, apartments, condos | dropped |
+
+Each verdict carries the clues that decided it. To audit the sorter on live data
+without storing anything:
+
+```bash
+python -m zipleads review-permits --days 7
+python -m zipleads review-permits --days 7 --kind new_occupant
+```
+
+The rules are tested against real permits labeled from the rep's feedback
+(`tests/fixtures/permit_cases.json`). When the review shows a wrong call, add the
+permit to that file with the right label, then fix the rule until it passes.
+Profiles choose what to drop and hide in `[sorter]`.
+
 ## Feedback loop: Google Sheet
 
 `send` appends each day's new leads to a Google Sheet when `GOOGLE_SHEET_ID`

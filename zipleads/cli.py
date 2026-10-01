@@ -59,6 +59,13 @@ def _parser() -> argparse.ArgumentParser:
     sh = sub.add_parser("sheet", help="Google Sheet feedback loop")
     sh.add_argument("action", choices=["push", "pull"], help="push new leads / pull statuses back")
 
+    rv = sub.add_parser(
+        "review-permits",
+        help="print recent permits with the sorter's kind and reasons (no storage)",
+    )
+    rv.add_argument("--days", type=int, default=None, help="look-back window (default INGEST_DAYS)")
+    rv.add_argument("--kind", default="", help="only show this kind")
+
     pp = sub.add_parser("probe-places", help="run the profile's Places queries for one area")
     pp.add_argument("area", help='e.g. "Eagan, MN" or a zip')
 
@@ -131,6 +138,27 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(attrs, indent=1, default=str))
         return 0
 
+    if args.cmd == "review-permits":
+        from collections import Counter
+
+        days = args.days or settings.ingest_days
+        counts: Counter[str] = Counter()
+        for layer in territory.permit_layers:
+            if not layer.url:
+                continue
+            leads = arcgis_permits.fetch_permits(http, layer, profile, days)
+            for ld in sorted(leads, key=lambda x: (x.kind, x.address)):
+                counts[ld.kind] += 1
+                if args.kind and ld.kind != args.kind:
+                    continue
+                conf = ld.raw.get("kind_confidence", "")
+                reasons = "; ".join(ld.raw.get("kind_reasons", []))
+                print(f"{ld.kind:16} {conf:4} | {ld.address[:30]:30} | {reasons[:70]}")
+                print(f"{'':21} | {ld.description[:110]}")
+        print(f"\n{sum(counts.values())} permits in {days} days: {dict(counts)}")
+        print(f"profile drops {list(profile.sorter_drop)}, hides {list(profile.sorter_hide)}")
+        return 0
+
     if args.cmd == "probe-places":
         if not settings.places_enabled:
             print("GOOGLE_PLACES_API_KEY not set", file=sys.stderr)
@@ -179,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 2
             if args.action == "push":
-                n = sheets.push(client, store.unsubmitted())
+                n = sheets.push(client, store.unsubmitted(hide_kinds=profile.sorter_hide))
                 print(f"pushed {n} new leads to the sheet")
             else:
                 counts = sheets.pull(client, store)
@@ -191,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"fetched={r.fetched} kept={r.kept} created={r.created} merged={r.merged} "
                 f"dropped_out_of_territory={r.dropped_out_of_territory} "
-                f"dropped_by_segment={r.dropped_by_segment}"
+                f"dropped_by_segment={r.dropped_by_segment} dropped_by_kind={r.dropped_by_kind}"
             )
             if r.errors:
                 print(f"errors={r.errors}", file=sys.stderr)
@@ -211,7 +239,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.cmd == "export":
-            rows = store.unsubmitted(args.limit, include_unparsed=args.include_unparsed)
+            rows = store.unsubmitted(
+                args.limit, include_unparsed=args.include_unparsed, hide_kinds=profile.sorter_hide
+            )
             n = write_csv(rows, profile.export_columns, args.out)
             print(f"wrote {n} leads to {args.out}")
             return 0
@@ -223,7 +253,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"marked {len(args.keys)} submitted")
             return 0
         if args.cmd == "send":
-            rows = store.unsubmitted(args.limit, include_unparsed=args.include_unparsed)
+            rows = store.unsubmitted(
+                args.limit, include_unparsed=args.include_unparsed, hide_kinds=profile.sorter_hide
+            )
             write_csv(rows, profile.export_columns, args.out)
             msg = mail.build_message(settings, rows, Path(args.out), territory.name)
             if args.dry_run:
@@ -253,6 +285,11 @@ def main(argv: list[str] | None = None) -> int:
                 for s in r["sources"].split(","):
                     if s:
                         by_source[s] = by_source.get(s, 0) + 1
+            kinds: dict[str, int] = {}
+            for r in rows:
+                if r["kind"]:
+                    kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+            print(f"permit kinds stored: {kinds}")
             statuses: dict[str, int] = {}
             for r in rows:
                 if r["status"]:

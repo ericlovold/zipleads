@@ -25,6 +25,7 @@ class Lead:
     evidence_url: str = ""
     description: str = ""
     value: float = 0.0
+    kind: str = ""  # permit kind from zipleads.sorter; empty for non-permit sources
     raw: dict = field(default_factory=dict)
 
     def raw_json(self) -> str:

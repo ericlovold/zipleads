@@ -189,8 +189,6 @@ def load_territory(path: str | Path) -> Territory:
 class Profile:
     name: str
     news_terms: tuple[str, ...]
-    permit_include_terms: tuple[str, ...]
-    permit_exclude_terms: tuple[str, ...]
     places_queries: tuple[str, ...]
     contact_titles: tuple[str, ...]
     source_weights: dict[str, int]
@@ -200,7 +198,10 @@ class Profile:
     news_only_penalty: int
     unparsed_penalty: int
     export_columns: tuple[str, ...]
-    permit_exclude_types: tuple[str, ...] = ()  # exact tokens on permit type / occupancy
+    # Permit kinds (see zipleads/sorter.py): dropped before storage, or stored but kept
+    # out of exports and enrichment.
+    sorter_drop: tuple[str, ...] = ("residential", "building_systems")
+    sorter_hide: tuple[str, ...] = ("tenant_refresh",)
     news_exclude_terms: tuple[str, ...] = ()  # headline substrings that are never a lead
     segment_exclude: tuple[str, ...] = ()
     segment_deprioritize: tuple[str, ...] = ()
@@ -236,16 +237,26 @@ DEFAULT_EXPORT_COLUMNS = (
 def load_profile(path: str | Path) -> Profile:
     path = Path(path)
     doc = tomllib.loads(path.read_text(encoding="utf-8"))
+    if "permits" in doc:
+        raise ValueError(
+            f"{path}: the [permits] keyword lists were replaced by the permit sorter. "
+            "Remove [permits]; use [sorter] drop/hide (see profiles/telecom-new-business.toml)."
+        )
+    from zipleads.sorter import KINDS
+
+    for key in ("drop", "hide"):
+        unknown = set(doc.get("sorter", {}).get(key, [])) - set(KINDS)
+        if unknown:
+            raise ValueError(f"{path}: [sorter] {key} has unknown kinds {sorted(unknown)}")
     score = doc.get("score", {})
-    permits = doc.get("permits", {})
+    sorter = doc.get("sorter", {})
     segments = doc.get("segments", {})
     tiers = tuple((float(t[0]), int(t[1])) for t in score.get("value_tiers", []))
     return Profile(
         name=doc.get("name", path.stem),
         news_terms=tuple(doc.get("news", {}).get("terms", [])),
-        permit_include_terms=tuple(t.lower() for t in permits.get("include_terms", [])),
-        permit_exclude_terms=tuple(t.lower() for t in permits.get("exclude_terms", [])),
-        permit_exclude_types=tuple(t.lower() for t in permits.get("exclude_types", [])),
+        sorter_drop=tuple(sorter.get("drop", ["residential", "building_systems"])),
+        sorter_hide=tuple(sorter.get("hide", ["tenant_refresh"])),
         news_exclude_terms=tuple(t.lower() for t in doc.get("news", {}).get("exclude_terms", [])),
         places_queries=tuple(doc.get("places", {}).get("queries", ["opening soon"])),
         contact_titles=tuple(doc.get("contacts", {}).get("titles", [])),

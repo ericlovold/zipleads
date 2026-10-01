@@ -79,10 +79,10 @@ def test_territory_labels_are_real_cities(territory):
 
 def test_profile_loads(profile):
     assert profile.source_weights["places_future"] == 40
-    assert "commercial" in profile.permit_include_terms
+    assert profile.sorter_drop == ("residential", "building_systems")
+    assert profile.sorter_hide == ("tenant_refresh",)
     assert profile.contact_titles[0] == "owner"
     assert "maxpreps" in profile.news_exclude_terms
-    assert "3to4" in profile.permit_exclude_types
     assert profile.export_columns[:4] == ("contact_name", "company_name", "contact_email", "phone")
 
 
@@ -97,3 +97,14 @@ def test_smtp_password_strips_all_whitespace(monkeypatch):
 
     monkeypatch.setenv("SMTP_PASSWORD", "abcd\u00a0efgh ijkl\tmnop ")
     assert load_settings().smtp_password == "abcdefghijklmnop"
+
+
+def test_profile_rejects_old_permits_section_and_unknown_kinds(tmp_path):
+    old = tmp_path / "old.toml"
+    old.write_text('name = "x"\n[permits]\ninclude_terms = ["commercial"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="permit sorter"):
+        load_profile(old)
+    bad = tmp_path / "bad.toml"
+    bad.write_text('name = "x"\n[sorter]\ndrop = ["condos"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown kinds"):
+        load_profile(bad)

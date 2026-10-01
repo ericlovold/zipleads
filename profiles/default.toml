@@ -5,9 +5,11 @@ name = "Default: new and relocating businesses"
 [news]
 terms = ['"grand opening"', '"new location"', '"is opening"', "relocating", "expanding"]
 
-[permits]
-include_terms = ["commercial", "tenant", "remodel", "new construction", "new building"]
-exclude_terms = ["single family", "single-family", "residential", "duplex"]
+[sorter]
+# Every permit is sorted into one kind (zipleads/sorter.py): new_occupant,
+# tenant_refresh, building_systems, residential. Only new_occupant is a lead.
+drop = ["residential", "building_systems"]  # never stored
+hide = ["tenant_refresh"]                    # stored, kept out of exports and enrichment
 
 [places]
 queries = ["opening soon"]

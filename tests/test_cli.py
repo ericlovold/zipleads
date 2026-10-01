@@ -50,3 +50,19 @@ def test_sheet_command_requires_config(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
     monkeypatch.delenv("GOOGLE_SHEET_ID", raising=False)
     assert main(["sheet", "push"]) == 2
+
+
+def test_review_permits_prints_kinds_and_reasons(tmp_path, monkeypatch, capsys, fixture_json):
+    from tests.conftest import FakeHttp
+    from zipleads import cli
+
+    monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
+    monkeypatch.setattr(
+        cli, "RequestsHttp", lambda: FakeHttp({"/query": fixture_json("arcgis_query.json")})
+    )
+    assert main(["review-permits", "--days", "7"]) == 0
+    out = capsys.readouterr().out
+    assert "new_occupant" in out and "residential" in out
+    assert "says 'Tenant improvement'" in out or "tenant improvement" in out.lower()
+    assert "3 permits in 7 days" in out
+    assert not (tmp_path / "x.sqlite").exists()  # review never writes the database

@@ -77,7 +77,8 @@ def test_ingest_end_to_end(make_settings, territory, profile, fixture_json, fixt
     ctx = _ctx(make_settings(places_key="PK"), territory, profile, http)
     report = ingest(ctx, ("permits", "news", "places"))
     assert report.errors == {}
-    assert report.fetched == {"mpls_permits": 2, "news": 4, "places": 1}  # stpaul: no url
+    assert report.fetched == {"mpls_permits": 3, "news": 4, "places": 1}  # stpaul: no url
+    assert report.dropped_by_kind == {"residential": 1}
     rows = {r["dedupe_key"]: r for r in ctx.store.all_leads()}
     # Permit with a named tenant keys on the tenant; the contractor rides along.
     tenant = rows["northstar dental|minneapolis"]
@@ -494,3 +495,69 @@ def test_chain_match_in_another_city_is_discarded(make_settings, territory, prof
     row = ctx.store.all_leads()[0]
     assert row["address"] == "" and row["phone"] == ""
     assert not any("/v1/places/" in u for _, u, _ in http.calls)
+
+
+def test_hidden_kinds_stay_out_of_exports_and_enrichment(make_settings, territory, profile):
+    ctx = _ctx(make_settings(), territory, profile, FakeHttp())
+    ctx.store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="p",
+            company_name="",
+            address="1 A St",
+            city="Minneapolis",
+            zip="55401",
+            kind="tenant_refresh",
+        )
+    )
+    ctx.store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="p",
+            company_name="",
+            address="2 B St",
+            city="Minneapolis",
+            zip="55401",
+            kind="new_occupant",
+        )
+    )
+    hide = profile.sorter_hide
+    assert [r["address"] for r in ctx.store.unsubmitted(hide_kinds=hide)] == ["2 B St"]
+    assert [r["address"] for r in ctx.store.needs_enrichment(10, hide_kinds=hide)] == ["2 B St"]
+    assert len(ctx.store.unsubmitted()) == 2
+
+
+def test_new_occupant_permit_outranks_refresh_at_same_site(tmp_path):
+    store = Store(tmp_path / "t.sqlite")
+    key, _ = store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="p",
+            company_name="",
+            address="9 C St",
+            city="Minneapolis",
+            kind="tenant_refresh",
+        )
+    )
+    store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="p",
+            company_name="",
+            address="9 C St",
+            city="Minneapolis",
+            kind="new_occupant",
+        )
+    )
+    assert store.get(key)["kind"] == "new_occupant"
+    store.upsert(
+        Lead(
+            source="mpls_permits",
+            signal="p",
+            company_name="",
+            address="9 C St",
+            city="Minneapolis",
+            kind="tenant_refresh",
+        )
+    )
+    assert store.get(key)["kind"] == "new_occupant"
