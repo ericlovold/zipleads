@@ -158,6 +158,21 @@ class EnrichReport:
     errors: dict[str, str] = field(default_factory=dict)
 
 
+def _coords_from_raw(store: Store, key: str) -> tuple[float, float]:
+    """Latitude/longitude from any permit sighting of this lead, else (0, 0)."""
+    row = store.conn.execute(
+        "SELECT raw FROM sightings WHERE dedupe_key = ? AND source LIKE '%permits' LIMIT 1",
+        (key,),
+    ).fetchone()
+    if not row:
+        return 0.0, 0.0
+    try:
+        raw = json.loads(row[0])
+        return float(raw.get("lat") or 0), float(raw.get("lon") or 0)
+    except (ValueError, TypeError, AttributeError):
+        return 0.0, 0.0
+
+
 def _place_id_from_raw(store: Store, key: str) -> str:
     """A places_future lead already knows its place_id; reuse it and skip a search."""
     row = store.conn.execute(
@@ -188,13 +203,19 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
             company_name = row["company_name"]
             place_id = _place_id_from_raw(ctx.store, key)
             if settings.places_enabled and not company_name and row["address"]:
-                hits = places_details.find_at_address(
-                    ctx.http,
-                    settings.google_places_api_key,
-                    row["address"],
-                    row["city"],
-                    row["state"],
-                )
+                lat, lon = _coords_from_raw(ctx.store, key)
+                if lat and lon:
+                    hits = places_details.find_near(
+                        ctx.http, settings.google_places_api_key, lat, lon, row["address"]
+                    )
+                else:
+                    hits = places_details.find_at_address(
+                        ctx.http,
+                        settings.google_places_api_key,
+                        row["address"],
+                        row["city"],
+                        row["state"],
+                    )
                 if len(hits) == 1:
                     company_name = hits[0].name
                     place_id = hits[0].place_id

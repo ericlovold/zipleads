@@ -106,6 +106,8 @@ class PermitFieldMap:
     permit_number: str = ""  # optional: cited in the lead description
     status: str = ""  # optional: included in description for the reader
     applicant_person: str = ""  # optional: who filed, shown next to the applicant
+    latitude: str = ""  # optional: lets enrich look up businesses at the site by coordinate
+    longitude: str = ""
 
 
 @dataclass(frozen=True)

@@ -219,7 +219,12 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
                     if x
                 )[:500],
                 value=_number(a.get(f.value)),
-                raw={"attributes": a, "value": a.get(f.value)},
+                raw={
+                    "attributes": a,
+                    "value": a.get(f.value),
+                    "lat": _number(a.get(f.latitude)) if f.latitude else 0.0,
+                    "lon": _number(a.get(f.longitude)) if f.longitude else 0.0,
+                },
             )
         )
     return leads

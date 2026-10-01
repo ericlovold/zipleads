@@ -13,6 +13,8 @@ from zipleads.http import Http
 from zipleads.normalize import normalize_address, normalize_name
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
+NEARBY_RADIUS_M = 25.0  # one building, not the block
 DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 SEARCH_MASK = (
     "places.id,places.displayName,places.formattedAddress,places.types,places.businessStatus"
@@ -115,6 +117,44 @@ def find_at_address(
         formatted = p.get("formattedAddress", "")
         if want and _street_key(formatted) != want:
             continue  # a nearby place, not this address
+        hits.append(
+            PlaceHit(
+                place_id=p.get("id", ""),
+                name=(p.get("displayName") or {}).get("text", ""),
+                address=formatted,
+            )
+        )
+    return hits
+
+
+def find_near(
+    http: Http, api_key: str, lat: float, lon: float, address: str, limit: int = 10
+) -> list[PlaceHit]:
+    """Businesses within a few meters of a coordinate, matched to the street address.
+
+    Text search for a bare address returns the address, not the tenants. Nearby
+    search around the permit's own coordinate returns what is actually there.
+    """
+    if not lat or not lon:
+        return []
+    page = http.post_json(
+        NEARBY_URL,
+        {
+            "locationRestriction": {
+                "circle": {"center": {"latitude": lat, "longitude": lon}, "radius": NEARBY_RADIUS_M}
+            },
+            "maxResultCount": limit,
+        },
+        headers={"X-Goog-Api-Key": api_key, "X-Goog-FieldMask": SEARCH_MASK},
+    )
+    want = _street_key(address)
+    hits = []
+    for p in page.get("places", []):
+        if not is_business(p):
+            continue
+        formatted = p.get("formattedAddress", "")
+        if want and _street_key(formatted) and _street_key(formatted) != want:
+            continue  # next door, not this building
         hits.append(
             PlaceHit(
                 place_id=p.get("id", ""),

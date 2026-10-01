@@ -15,6 +15,8 @@
       "attributes": {
         "OBJECTID": 1,
         "applicantName": "Greiner Construction",
+        "Latitude": 44.9778,
+        "Longitude": -93.2650,
         "Display": "250 Marquette Ave, Minneapolis, MN 55401",
         "permitType": "Building",
         "workType": "Remodel",

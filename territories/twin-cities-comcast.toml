@@ -109,6 +109,8 @@ occupancy = "occupancyType"
 permit_number = "permitNumber"
 status = "status"
 applicant_person = "fullName"
+latitude = "Latitude"
+longitude = "Longitude"
 
 # Saint Paul: set url once the FeatureServer URL is confirmed from information.stpaul.gov
 # ("View API Resources" on the Building Permits dataset). Blank url = skipped.

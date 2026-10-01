@@ -313,3 +313,69 @@ def test_enrich_lists_multiple_businesses_in_description(make_settings, territor
     row = ctx.store.all_leads()[0]
     assert row["company_name"] == ""
     assert row["description"].startswith("Places lists here: Suite 100 Dental; Tower Law | HVAC")
+
+
+def test_find_near_filters_to_building_and_businesses():
+    http = FakeHttp(
+        {
+            "places:searchNearby": {
+                "places": [
+                    {
+                        "id": "p",
+                        "displayName": {"text": "60 South 6th St"},
+                        "types": ["premise"],
+                        "formattedAddress": "60 S 6th St, Minneapolis, MN 55402",
+                    },
+                    {
+                        "id": "a",
+                        "displayName": {"text": "Tower Law"},
+                        "types": ["lawyer"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "60 S 6th St Suite 3300, Minneapolis, MN",
+                    },
+                    {
+                        "id": "b",
+                        "displayName": {"text": "Corner Cafe"},
+                        "types": ["cafe"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "80 S 6th St, Minneapolis, MN",
+                    },
+                ]
+            }
+        }
+    )
+    hits = places_details.find_near(http, "K", 44.9, -93.2, "60 6TH ST S")
+    assert [h.name for h in hits] == ["Tower Law"]
+    body = http.calls[0][2]
+    assert body["locationRestriction"]["circle"]["radius"] == 25.0
+    assert places_details.find_near(http, "K", 0, 0, "60 6TH ST S") == []
+
+
+def test_enrich_uses_permit_coordinates_when_present(
+    make_settings, territory, profile, fixture_json
+):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "/query": fixture_json("arcgis_query.json"),
+            "places:searchNearby": {
+                "places": [
+                    {
+                        "id": "ChIJshell",
+                        "displayName": {"text": "Northstar Dental"},
+                        "types": ["dentist"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "250 Marquette Ave, Minneapolis, MN 55401",
+                    },
+                ]
+            },
+            "/v1/places/ChIJshell": {"nationalPhoneNumber": "612-555-0199"},
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ingest(ctx, ("permits",))
+    # The Greiner permit already names its tenant; force the address-only path by blanking it.
+    ctx.store.update_fields("northstar dental|minneapolis", company_name="", norm_name="")
+    report = enrich(ctx, limit=5)
+    assert report.companies_found == 1
+    assert not any("searchText" in u for _, u, _ in http.calls)  # coordinates beat text search
