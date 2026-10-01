@@ -459,3 +459,38 @@ def test_name_lookup_outside_territory_is_discarded(make_settings, territory, pr
     assert not any(
         "/v1/places/" in u for _, u, _ in http.calls
     )  # no paid details call on a bad match
+
+
+def test_chain_match_in_another_city_is_discarded(make_settings, territory, profile):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "ChIJchan",
+                        "displayName": {"text": "Chick-fil-A"},
+                        "types": ["restaurant"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "445 W 79th St, Chanhassen, MN 55317, USA",
+                    }
+                ]
+            },
+            "/v1/places/ChIJchan": {"nationalPhoneNumber": "952-555-0100"},
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ctx.store.upsert(
+        Lead(
+            source="google_news",
+            signal="news:headline",
+            company_name="Chick-fil-A",
+            city="Shakopee",
+            state="MN",
+        )
+    )
+    report = enrich(ctx, limit=5)
+    assert report.phones_found == 0
+    row = ctx.store.all_leads()[0]
+    assert row["address"] == "" and row["phone"] == ""
+    assert not any("/v1/places/" in u for _, u, _ in http.calls)
