@@ -347,7 +347,7 @@ def test_find_near_filters_to_building_and_businesses():
     hits = places_details.find_near(http, "K", 44.9, -93.2, "60 6TH ST S")
     assert [h.name for h in hits] == ["Tower Law"]
     body = http.calls[0][2]
-    assert body["locationRestriction"]["circle"]["radius"] == 25.0
+    assert body["locationRestriction"]["circle"]["radius"] == 50.0
     assert places_details.find_near(http, "K", 0, 0, "60 6TH ST S") == []
 
 
@@ -383,3 +383,42 @@ def test_enrich_uses_permit_coordinates_when_present(
     assert any("searchNearby" in u for u in urls)  # the lead with coordinates used nearby search
     row = ctx.store.get("northstar dental|minneapolis")
     assert row["company_name"] == "Northstar Dental" and row["phone"] == "612-555-0199"
+
+
+def test_news_lead_gets_phone_and_address_by_name_and_city(make_settings, territory, profile):
+    settings = make_settings(places_key="PK")
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [
+                    {
+                        "id": "ChIJcuts",
+                        "displayName": {"text": "Mission Cuts"},
+                        "types": ["hair_salon"],
+                        "businessStatus": "OPERATIONAL",
+                        "formattedAddress": "3900 Excelsior Blvd, St. Louis Park, MN 55416",
+                    }
+                ]
+            },
+            "/v1/places/ChIJcuts": {
+                "nationalPhoneNumber": "952-555-0123",
+                "websiteUri": "https://mc.example",
+            },
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    ctx.store.upsert(
+        Lead(
+            source="google_news",
+            signal="news:headline",
+            company_name="Mission Cuts",
+            city="St. Louis Park",
+            state="MN",
+        )
+    )
+    report = enrich(ctx, limit=5)
+    assert report.phones_found == 1
+    row = ctx.store.all_leads()[0]
+    assert row["phone"] == "952-555-0123"
+    assert row["address"].startswith("3900 Excelsior Blvd") and row["zip"] == "55416"
+    assert http.calls[0][2]["textQuery"] == "Mission Cuts St. Louis Park, MN"

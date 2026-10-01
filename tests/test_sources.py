@@ -92,6 +92,12 @@ def test_news_company_extraction():
     )
     assert ex("Crumbl's new location in Blaine set for October - Patch") == "Crumbl"
     assert ex("Fall festival draws crowds to Eagan park - Sun Thisweek") == ""
+    assert ex("Chick-fil-A sets grand opening date in Shakopee - BMTN") == "Chick-fil-A"
+    assert ex("Regional coffee chain preparing to open new drive-through in Blaine - Yahoo") == (
+        "Regional coffee chain"
+    )
+    assert ex("Hudson's Hughes eyes March dispensary opening - Gazette") == "Hudson's Hughes"
+    assert ex("Mission Cuts opens in St. Louis Park - hometownsource.com") == "Mission Cuts"
 
 
 def test_news_feed_to_leads(fixture_text, matcher):

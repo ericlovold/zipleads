@@ -14,5 +14,8 @@ def write_csv(rows: list[sqlite3.Row], columns: tuple[str, ...], out_path: str |
         writer = csv.DictWriter(fh, fieldnames=list(columns), extrasaction="ignore")
         writer.writeheader()
         for row in rows:
-            writer.writerow({c: row[c] for c in columns if c in row.keys()})
+            record = {c: row[c] for c in columns if c in row.keys()}
+            if "value" in record and not record["value"]:
+                record["value"] = ""
+            writer.writerow(record)
     return len(rows)

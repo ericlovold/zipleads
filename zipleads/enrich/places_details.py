@@ -14,7 +14,7 @@ from zipleads.normalize import normalize_address, normalize_name
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
-NEARBY_RADIUS_M = 25.0  # one building, not the block
+NEARBY_RADIUS_M = 50.0  # a tower's permit point is the parcel centroid; tenants geocode at the door
 DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 SEARCH_MASK = (
     "places.id,places.displayName,places.formattedAddress,places.types,places.businessStatus"
@@ -166,19 +166,33 @@ def find_near(
 
 
 def find_place_id(http: Http, api_key: str, company_name: str, address: str) -> str:
-    if not company_name or not address:
-        return ""
+    hit = find_by_name(http, api_key, company_name, address)
+    return hit.place_id if hit else ""
+
+
+def find_by_name(http: Http, api_key: str, company_name: str, where: str) -> PlaceHit | None:
+    """Best Places match for a business name near `where` (an address or a city).
+
+    Used for permits that name a tenant and for news leads that name a
+    business but carry no address. Returns the first business-typed result
+    whose name resembles the query.
+    """
+    if not company_name or not where:
+        return None
     page = http.post_json(
         SEARCH_URL,
-        {"textQuery": f"{company_name} {address}", "pageSize": 3},
+        {"textQuery": f"{company_name} {where}", "pageSize": 3},
         headers={"X-Goog-Api-Key": api_key, "X-Goog-FieldMask": SEARCH_MASK},
     )
     for p in page.get("places", []):
         if not is_business(p):
             continue
-        if _similar(company_name, (p.get("displayName") or {}).get("text", "")):
-            return p.get("id", "")
-    return ""
+        name = (p.get("displayName") or {}).get("text", "")
+        if _similar(company_name, name):
+            return PlaceHit(
+                place_id=p.get("id", ""), name=name, address=p.get("formattedAddress", "")
+            )
+    return None
 
 
 def fetch_contact(http: Http, api_key: str, place_id: str) -> Contact:

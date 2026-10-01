@@ -12,7 +12,7 @@ from zipleads.enrich.zoominfo import ZoomInfoClient
 from zipleads.geocode import Geocoder
 from zipleads.http import Http
 from zipleads.models import Lead
-from zipleads.normalize import normalize_name
+from zipleads.normalize import extract_zip, normalize_name
 from zipleads.score import score_lead
 from zipleads.segments import excluded_by, flags_for
 from zipleads.sources import arcgis_permits, google_news, places_future
@@ -228,9 +228,17 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                         :500
                     ]
             if settings.places_enabled and not row["phone"]:
-                place_id = place_id or places_details.find_place_id(
-                    ctx.http, settings.google_places_api_key, company_name, row["address"]
-                )
+                if not place_id and company_name:
+                    where = row["address"] or ", ".join(x for x in (row["city"], row["state"]) if x)
+                    hit = places_details.find_by_name(
+                        ctx.http, settings.google_places_api_key, company_name, where
+                    )
+                    if hit:
+                        place_id = hit.place_id
+                        if not row["address"] and hit.address:
+                            updates["address"] = hit.address
+                            if not row["zip"]:
+                                updates["zip"] = extract_zip(hit.address)
                 contact = places_details.fetch_contact(
                     ctx.http, settings.google_places_api_key, place_id
                 )

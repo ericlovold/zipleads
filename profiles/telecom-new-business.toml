@@ -20,6 +20,8 @@ exclude_terms = [
   "market forecast", "market size", "market to expand", "patent", "ranking at",
   "surgery for", "undergoes surgery", "after surgery", "skull", "injury",
   "opening for ", "concert", "tour dates", "museum", "church", "churches",
+  "narrative", "shares", "stock", "(nyse", "(nasdaq", "simplywall", "jersey gardens", "new jersey",
+  "manila times",
 ]
 
 [permits]
@@ -39,6 +41,7 @@ exclude_terms = [
   # Repairs to an occupied building are not a move-in.
   "water damage", "fire damage", "storm damage", "disaster", "restoration",
   "repair", "replace existing", "replacement of", "like for like", "like-for-like",
+  "replacing", "windows", "rooftop", "telecommunications equipment", "cell site", "generator",
 ]
 
 [places]

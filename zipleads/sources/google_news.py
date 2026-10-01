@@ -21,9 +21,12 @@ from zipleads.territory import TerritoryMatcher
 FEED_URL = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
 
 _VERB = (
-    r"(?:to open|opens|is opening|will open|opening|relocat\w*|is moving|moves|moving|"
-    r"expands|expanding|to expand|signs lease|signed a lease|to move|breaks ground|"
-    r"headed to|coming to|plans to open|set to open|announces new)"
+    r"(?:sets? (?:a )?grand opening|announces? (?:a )?grand opening|plans? to open|"
+    r"preparing to open|"
+    r"set to open|is set to open|eyes? (?:[\w-]+ ){0,3}(?:opening|location)|readies|"
+    r"breaks ground|signs? (?:a )?lease|signed a lease|to open|is opening|will open|opens|opening|"
+    r"relocat\w*|is moving|moves|moving|expands|expanding|to expand|to move|"
+    r"headed to|coming to|announces new|debuts|launches)"
 )
 _ORG_BEFORE_VERB = re.compile(rf"^(?P<org>[A-Z][^,:;]{{1,60}}?)\s+{_VERB}\b", re.IGNORECASE)
 _POSSESSIVE = re.compile(r"^(?P<org>[A-Z][^,:;]{1,60}?)['’]s new (?:location|office|store|clinic)")
