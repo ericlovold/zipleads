@@ -35,8 +35,13 @@ class FakeHttp:
         self.calls.append(("GET", url, params))
         return self._lookup(url)
 
-    def post_json(self, url, body, headers=None):
+    def post_json(self, url, body, headers=None, params=None):
         self.calls.append(("POST", url, body))
+        resp = self._lookup(url)
+        return resp(body) if callable(resp) else resp
+
+    def put_json(self, url, body, headers=None, params=None):
+        self.calls.append(("PUT", url, body))
         resp = self._lookup(url)
         return resp(body) if callable(resp) else resp
 

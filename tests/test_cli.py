@@ -44,3 +44,9 @@ def test_default_ingest_sources_exclude_places():
 
     assert pipeline.DEFAULT_SOURCES == ("permits", "news")
     assert "places" in pipeline.BUILTIN_SOURCES
+
+
+def test_sheet_command_requires_config(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
+    monkeypatch.delenv("GOOGLE_SHEET_ID", raising=False)
+    assert main(["sheet", "push"]) == 2

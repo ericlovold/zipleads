@@ -6,7 +6,7 @@ import logging
 import sys
 from pathlib import Path
 
-from zipleads import mail, pipeline
+from zipleads import mail, pipeline, sheets
 from zipleads.config import load_profile, load_settings, load_territory
 from zipleads.export import write_csv
 from zipleads.http import RequestsHttp
@@ -55,6 +55,9 @@ def _parser() -> argparse.ArgumentParser:
     pr.add_argument("--sample", type=int, default=0, help="also print N most recent raw records")
 
     sub.add_parser("stats", help="counts by source and submission state")
+
+    sh = sub.add_parser("sheet", help="Google Sheet feedback loop")
+    sh.add_argument("action", choices=["push", "pull"], help="push new leads / pull statuses back")
 
     pp = sub.add_parser("probe-places", help="run the profile's Places queries for one area")
     pp.add_argument("area", help='e.g. "Eagan, MN" or a zip')
@@ -160,7 +163,28 @@ def main(argv: list[str] | None = None) -> int:
 
     store = Store(settings.db_path)
     ctx = pipeline.Context(settings, territory, profile, http, store)
+
+    def sheet_client() -> sheets.SheetsClient | None:
+        if not settings.sheet_enabled:
+            return None
+        token = sheets.service_account_token_provider(settings.service_account_json)
+        return sheets.SheetsClient(http, settings.sheet_id, token, settings.sheet_tab)
+
     try:
+        if args.cmd == "sheet":
+            client = sheet_client()
+            if client is None:
+                print(
+                    "GOOGLE_SHEET_ID and GOOGLE_SERVICE_ACCOUNT_JSON must be set", file=sys.stderr
+                )
+                return 2
+            if args.action == "push":
+                n = sheets.push(client, store.unsubmitted())
+                print(f"pushed {n} new leads to the sheet")
+            else:
+                counts = sheets.pull(client, store)
+                print(f"pulled statuses: {counts}")
+            return 0
         if args.cmd == "ingest":
             sources = tuple(s.strip() for s in args.sources.split(",") if s.strip())
             r = pipeline.ingest(ctx, sources)
@@ -214,6 +238,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"send failed: {exc}", file=sys.stderr)
                 return 1
             print(f"sent {len(rows)} leads to {', '.join(settings.mail_to)}")
+            client = sheet_client()
+            if client is not None:
+                try:
+                    print(f"pushed {sheets.push(client, rows)} new leads to the sheet")
+                except Exception as exc:  # the email already went; do not fail the run
+                    print(f"sheet push failed: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 0
         if args.cmd == "stats":
             rows = store.all_leads()
@@ -223,7 +253,13 @@ def main(argv: list[str] | None = None) -> int:
                 for s in r["sources"].split(","):
                     if s:
                         by_source[s] = by_source.get(s, 0) + 1
-            print(f"leads={len(rows)} submitted={submitted} by_source={by_source}")
+            statuses: dict[str, int] = {}
+            for r in rows:
+                if r["status"]:
+                    statuses[r["status"]] = statuses.get(r["status"], 0) + 1
+            print(
+                f"leads={len(rows)} submitted={submitted} by_source={by_source} statuses={statuses}"
+            )
             values = sorted(r["value"] for r in rows if r["value"])
             if values:
                 pct = lambda q: values[min(len(values) - 1, int(q * len(values)))]  # noqa: E731

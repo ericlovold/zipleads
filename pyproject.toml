@@ -3,7 +3,7 @@ name = "zipleads"
 version = "0.1.0"
 description = "Find new and relocating businesses by zip code, for any industry and any territory."
 requires-python = ">=3.11"
-dependencies = ["requests>=2.32"]
+dependencies = ["requests>=2.32", "google-auth>=2.0"]
 
 [project.scripts]
 zipleads = "zipleads.cli:main"

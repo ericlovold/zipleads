@@ -35,7 +35,9 @@ CREATE TABLE IF NOT EXISTS leads (
     last_seen     TEXT NOT NULL,
     enriched_at   TEXT NOT NULL DEFAULT '',
     submitted_at  TEXT NOT NULL DEFAULT '',
-    submitted_ref TEXT NOT NULL DEFAULT ''
+    submitted_ref TEXT NOT NULL DEFAULT '',
+    status        TEXT NOT NULL DEFAULT '',
+    notes         TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sightings (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +100,8 @@ class Store:
         "applicant": "TEXT NOT NULL DEFAULT ''",
         "value": "REAL NOT NULL DEFAULT 0",
         "submitted_ref": "TEXT NOT NULL DEFAULT ''",
+        "status": "TEXT NOT NULL DEFAULT ''",
+        "notes": "TEXT NOT NULL DEFAULT ''",
     }
 
     def _migrate(self) -> None:
@@ -249,7 +253,7 @@ class Store:
     def unsubmitted(
         self, limit: int | None = None, include_unparsed: bool = False
     ) -> list[sqlite3.Row]:
-        where = "submitted_at = ''"
+        where = "submitted_at = '' AND status != 'junk'"
         if not include_unparsed:
             where += f" AND NOT {self._UNPARSED_ONLY}"
         sql = f"SELECT * FROM leads WHERE {where} ORDER BY score DESC, first_seen ASC"
@@ -269,7 +273,7 @@ class Store:
         """Unsubmitted leads missing a phone or a contact, never enriched, best first."""
         return self.conn.execute(
             """SELECT * FROM leads
-               WHERE submitted_at = '' AND enriched_at = ''
+               WHERE submitted_at = '' AND status != 'junk' AND enriched_at = ''
                  AND (phone = '' OR contact_email = '')
                ORDER BY score DESC, first_seen ASC LIMIT ?""",
             (int(limit),),

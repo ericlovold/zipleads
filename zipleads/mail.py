@@ -35,6 +35,13 @@ def build_message(
     if len(rows) > BODY_ROWS:
         lines.append(f"... {len(rows) - BODY_ROWS} more in the attached CSV.")
     lines += ["", "Full detail, evidence links and dedupe keys are in the attachment."]
+    if settings.sheet_url:
+        lines += [
+            "",
+            f"Working sheet: {settings.sheet_url}",
+            "Type a status per row (submitted, working, sold, lost, junk) and the portal ref; "
+            "it syncs back each morning.",
+        ]
     msg.set_content("\n".join(lines))
     msg.add_attachment(
         csv_path.read_bytes(), maintype="text", subtype="csv", filename=csv_path.name

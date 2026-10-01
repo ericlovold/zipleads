@@ -23,7 +23,12 @@ class Http(Protocol):
     def get_text(
         self, url: str, params: dict | None = None, headers: dict | None = None
     ) -> str: ...
-    def post_json(self, url: str, body: dict, headers: dict | None = None) -> Any: ...
+    def post_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any: ...
+    def put_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any: ...
 
 
 class RequestsHttp:
@@ -63,5 +68,12 @@ class RequestsHttp:
     def get_text(self, url: str, params: dict | None = None, headers: dict | None = None) -> str:
         return self._send("GET", url, params=params, headers=headers).text
 
-    def post_json(self, url: str, body: dict, headers: dict | None = None) -> Any:
-        return self._send("POST", url, json=body, headers=headers).json()
+    def post_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any:
+        return self._send("POST", url, json=body, headers=headers, params=params).json()
+
+    def put_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any:
+        return self._send("PUT", url, json=body, headers=headers, params=params).json()

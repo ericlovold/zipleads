@@ -53,6 +53,17 @@ class Settings:
     smtp_password: str = ""
     mail_from: str = ""
     mail_to: tuple[str, ...] = ()
+    sheet_id: str = ""
+    sheet_tab: str = "Leads"
+    service_account_json: Path = Path("")
+
+    @property
+    def sheet_enabled(self) -> bool:
+        return bool(self.sheet_id and str(self.service_account_json) not in ("", "."))
+
+    @property
+    def sheet_url(self) -> str:
+        return f"https://docs.google.com/spreadsheets/d/{self.sheet_id}" if self.sheet_id else ""
 
     @property
     def mail_enabled(self) -> bool:
@@ -87,6 +98,9 @@ def load_settings() -> Settings:
         smtp_password="".join(ch for ch in env.get("SMTP_PASSWORD", "") if not ch.isspace()),
         mail_from=env.get("MAIL_FROM", "").strip(),
         mail_to=tuple(a.strip() for a in env.get("MAIL_TO", "").split(",") if a.strip()),
+        sheet_id=env.get("GOOGLE_SHEET_ID", "").strip(),
+        sheet_tab=env.get("GOOGLE_SHEET_TAB", "Leads").strip() or "Leads",
+        service_account_json=Path(env.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()),
     )
 
 

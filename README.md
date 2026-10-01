@@ -66,7 +66,7 @@ python -m zipleads --territory territories/austin.toml --profile profiles/defaul
 Cron on a Mac Mini, weekdays at 6:15:
 
 ```
-15 6 * * 1-5  cd /path/to/zipleads && .venv/bin/python -m zipleads ingest && .venv/bin/python -m zipleads enrich --limit 25 && .venv/bin/python -m zipleads send
+15 6 * * 1-5  cd /path/to/zipleads && .venv/bin/python -m zipleads sheet pull; .venv/bin/python -m zipleads ingest && .venv/bin/python -m zipleads enrich --limit 30 && .venv/bin/python -m zipleads send
 ```
 
 ## New territory
@@ -78,6 +78,27 @@ python -m zipleads new-territory --name "Austin" --state TX --zips 78701,78702,7
 Then fill in city labels (they drive news queries) and any ArcGIS permit
 layers for that area. Most large US cities publish permits on an ArcGIS Hub;
 the layer URL ends in `/FeatureServer/0`.
+
+## Feedback loop: Google Sheet
+
+`send` appends each day's new leads to a Google Sheet when `GOOGLE_SHEET_ID`
+and `GOOGLE_SERVICE_ACCOUNT_JSON` are set. The rep works the sheet: one word
+in **status** (`submitted`, `working`, `sold`, `lost`, `junk`) and the
+portal reference in **portal_ref**. `zipleads sheet pull`, run before each
+morning's ingest, reads those back: submitted-family statuses mark the lead
+submitted with its reference, `junk` hides it from every future export.
+
+Setup once:
+
+1. In the Cloud project, enable the Google Sheets API, then IAM & Admin,
+   Service Accounts, create one named `zipleads`, Keys, Add key, JSON.
+   Save the file as `data/service-account.json` (the `data/` folder is
+   gitignored).
+2. Create a blank Google Sheet, rename the first tab `Leads`, and share the
+   sheet with the service account's email (it ends in
+   `iam.gserviceaccount.com`) as Editor.
+3. Put the sheet id (the long token in the sheet URL) in `.env` as
+   `GOOGLE_SHEET_ID`.
 
 ## Cost controls
 
