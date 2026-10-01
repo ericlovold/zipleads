@@ -12,7 +12,7 @@ from zipleads.enrich.zoominfo import ZoomInfoClient
 from zipleads.geocode import Geocoder
 from zipleads.http import Http
 from zipleads.models import Lead
-from zipleads.normalize import extract_zip, normalize_name
+from zipleads.normalize import extract_zip, normalize_address, normalize_name
 from zipleads.score import score_lead
 from zipleads.segments import excluded_by, flags_for
 from zipleads.sources import arcgis_permits, google_news, places_future
@@ -158,6 +158,25 @@ class EnrichReport:
     errors: dict[str, str] = field(default_factory=dict)
 
 
+def _same_place(ctx: Context, row, found_address: str) -> bool:
+    """Is a by-name Places match the location this lead is about?
+
+    A lead with its own address only needs the match inside the territory. A
+    lead known only by city (news) must match in that city: "Chick-fil-A" in
+    Shakopee news resolving to the Chanhassen store is a different location.
+    """
+    zip_code = extract_zip(found_address)
+    if zip_code and not ctx.matcher.contains_zip(zip_code):
+        return False
+    if row["address"]:
+        return True
+    lead_city = normalize_address(row["city"] or "").replace("saint ", "st ")
+    found_city = normalize_address(ctx.matcher.match_city(found_address) or "").replace(
+        "saint ", "st "
+    )
+    return bool(lead_city) and lead_city == found_city
+
+
 def _coords_from_raw(store: Store, key: str) -> tuple[float, float]:
     """Latitude/longitude from any permit sighting of this lead, else (0, 0)."""
     row = store.conn.execute(
@@ -233,20 +252,8 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                     hit = places_details.find_by_name(
                         ctx.http, settings.google_places_api_key, company_name, where
                     )
-                    if (
-                        hit
-                        and hit.address
-                        and not in_territory(
-                            Lead(
-                                source="places",
-                                signal="x",
-                                company_name=company_name,
-                                zip=extract_zip(hit.address),
-                            ),
-                            ctx.matcher,
-                        )
-                    ):
-                        hit = None  # same name, wrong town (e.g. "Hudson" matched Ironton)
+                    if hit and hit.address and not _same_place(ctx, row, hit.address):
+                        hit = None  # same name, different town: an existing location, not this one
                     if hit:
                         place_id = hit.place_id
                         if not row["address"] and hit.address:
