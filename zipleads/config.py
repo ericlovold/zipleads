@@ -82,7 +82,9 @@ def load_settings() -> Settings:
         smtp_host=env.get("SMTP_HOST", "").strip(),
         smtp_port=int(env.get("SMTP_PORT", "465")),
         smtp_user=env.get("SMTP_USER", "").strip(),
-        smtp_password=env.get("SMTP_PASSWORD", ""),
+        # Google shows App Passwords as "abcd efgh ijkl mnop" with non-breaking spaces;
+        # the SMTP AUTH exchange is ASCII-only, so drop every kind of whitespace.
+        smtp_password="".join(ch for ch in env.get("SMTP_PASSWORD", "") if not ch.isspace()),
         mail_from=env.get("MAIL_FROM", "").strip(),
         mail_to=tuple(a.strip() for a in env.get("MAIL_TO", "").split(",") if a.strip()),
     )

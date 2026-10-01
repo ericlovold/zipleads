@@ -80,3 +80,10 @@ def test_default_profile_has_defaults():
     p = load_profile("profiles/default.toml")
     assert p.export_columns[0] == "contact_name"
     assert p.places_queries == ("opening soon",)
+
+
+def test_smtp_password_strips_all_whitespace(monkeypatch):
+    from zipleads.config import load_settings
+
+    monkeypatch.setenv("SMTP_PASSWORD", "abcd\u00a0efgh ijkl\tmnop ")
+    assert load_settings().smtp_password == "abcdefghijklmnop"
