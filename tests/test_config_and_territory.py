@@ -108,3 +108,31 @@ def test_profile_rejects_old_permits_section_and_unknown_kinds(tmp_path):
     bad.write_text('name = "x"\n[sorter]\ndrop = ["condos"]\n', encoding="utf-8")
     with pytest.raises(ValueError, match="unknown kinds"):
         load_profile(bad)
+
+
+def test_territory_loads_license_feeds(territory):
+    feeds = {fd.name: fd for fd in territory.license_feeds}
+    assert set(feeds) == {"stpaul_licenses", "mpls_licenses"}
+    sp = feeds["stpaul_licenses"]
+    assert sp.type == "legistar" and sp.client == "stpaul" and sp.state == "MN"
+    assert sp.configured
+    mpls = feeds["mpls_licenses"]
+    assert mpls.type == "arcgis" and mpls.url == "" and not mpls.configured
+    assert mpls.fields.date == "APPLICATION_DATE"
+
+
+def test_license_feed_type_is_checked(tmp_path):
+    p = tmp_path / "t.toml"
+    p.write_text(
+        'name = "x"\nstate = "TX"\nzips = ["78701"]\n'
+        '[[license_feeds]]\nname = "austin"\ntype = "socrata"\ncity = "Austin"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="legistar, arcgis"):
+        load_territory(p)
+
+
+def test_territory_without_license_feeds_still_loads(tmp_path):
+    p = tmp_path / "t.toml"
+    p.write_text('name = "x"\nstate = "TX"\nzips = ["78701"]\n', encoding="utf-8")
+    assert load_territory(p).license_feeds == ()

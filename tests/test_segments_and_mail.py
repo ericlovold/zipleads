@@ -34,6 +34,25 @@ def test_segment_exclude_and_flags(profile):
     assert flags_for(profile, _lead("Joe's Coffee")) == []
 
 
+def test_segment_terms_skip_street_names_and_word_fragments(profile):
+    # University Ave is Saint Paul's main commercial corridor, not a school.
+    assert excluded_by(profile, _lead("Sharrett Liquor at 2389 University Avenue West")) == ""
+    assert excluded_by(profile, _lead("Remodel at 500 College St.")) == ""
+    assert excluded_by(profile, _lead("University of St. Thomas")) == "university"
+    assert excluded_by(profile, _lead("Twin Cities Academy")) == "academy"
+    assert excluded_by(profile, _lead("Twin Cities Academy St. Paul campus")) == "academy"
+    # Prefix terms still match longer words.
+    assert flags_for(profile, _lead("Acme Manufacturing")) == ["flag:boost:manufactur"]
+
+
+def test_license_sources_use_the_licenses_weight(profile):
+    from zipleads.score import score_lead
+
+    lic = score_lead(profile, "stpaul_licenses", "license:liquor on sale", 1, "", "")
+    permit = score_lead(profile, "mpls_permits", "permit:remodel", 1, "", "")
+    assert lic == profile.source_weights["licenses"] and lic > permit
+
+
 def test_score_flags_and_value_tiers(profile):
     base = score_lead(profile, "mpls_permits", "permit:x", 1, "", "")
     assert score_lead(profile, "mpls_permits", "permit:x,flag:deprioritized:dental", 1, "", "") == (

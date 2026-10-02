@@ -15,16 +15,16 @@ from zipleads.models import Lead
 from zipleads.normalize import extract_zip, normalize_address, normalize_name
 from zipleads.score import score_lead
 from zipleads.segments import excluded_by, flags_for
-from zipleads.sources import arcgis_permits, google_news, places_future
+from zipleads.sources import arcgis_permits, google_news, licenses, places_future
 from zipleads.store import Store
 from zipleads.territory import TerritoryMatcher
 
 log = logging.getLogger("zipleads")
 
-BUILTIN_SOURCES = ("permits", "news", "places")
+BUILTIN_SOURCES = ("permits", "licenses", "news", "places")
 # Places text search does not surface FUTURE_OPENING listings (verified live, Eagan MN,
 # 2026-09-30: 0 of 40). It stays available with `--sources places` but is off by default.
-DEFAULT_SOURCES = ("permits", "news")
+DEFAULT_SOURCES = ("permits", "licenses", "news")
 
 
 @dataclass
@@ -117,6 +117,20 @@ def _run_source(ctx: Context, name: str, report: IngestReport) -> None:
                 report.fetched[layer.name] = len(leads)
                 _absorb(ctx, leads, report)
             return
+        if name == "licenses":
+            for feed in ctx.territory.license_feeds:
+                if not feed.configured:
+                    log.info("%s: no url/client in territory, skipping", feed.name)
+                    continue
+                try:
+                    leads = licenses.fetch_licenses(ctx.http, feed, ctx.settings.ingest_days)
+                except Exception as exc:
+                    log.exception("%s failed", feed.name)
+                    report.errors[feed.name] = f"{type(exc).__name__}: {exc}"
+                    continue
+                report.fetched[feed.name] = len(leads)
+                _absorb(ctx, leads, report)
+            return
         if name == "news":
             leads = google_news.fetch_news(
                 ctx.http,
@@ -184,9 +198,10 @@ def _same_place(ctx: Context, row, found_address: str) -> bool:
 
 
 def _coords_from_raw(store: Store, key: str) -> tuple[float, float]:
-    """Latitude/longitude from any permit sighting of this lead, else (0, 0)."""
+    """Latitude/longitude from any permit or license sighting of this lead, else (0, 0)."""
     row = store.conn.execute(
-        "SELECT raw FROM sightings WHERE dedupe_key = ? AND source LIKE '%permits' LIMIT 1",
+        "SELECT raw FROM sightings WHERE dedupe_key = ? "
+        "AND (source LIKE '%permits' OR source LIKE '%licenses') LIMIT 1",
         (key,),
     ).fetchone()
     if not row:

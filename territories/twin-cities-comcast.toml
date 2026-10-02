@@ -126,3 +126,33 @@ work_type = "WORK_TYPE"
 description = "DESCRIPTION"
 date = "ISSUE_DATE"
 value = "VALUATION"
+
+# --- License applications ----------------------------------------------------
+# A license application names the business and its owner before it opens.
+
+# Saint Paul sends Class N license applications (liquor, entertainment, auto, etc.)
+# to City Council as resolutions; read from the public Legistar API.
+[[license_feeds]]
+name = "stpaul_licenses"
+type = "legistar"
+client = "stpaul"
+city = "Saint Paul"
+
+# Minneapolis Business License data (Business License Data Explorer). Set url after
+# `zipleads find-layers https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services license`
+# and confirm the field names below with `zipleads probe mpls_licenses --sample 3`.
+# Blank url = skipped.
+[[license_feeds]]
+name = "mpls_licenses"
+type = "arcgis"
+city = "Minneapolis"
+url = ""
+[license_feeds.fields]
+business_name = "BUSINESS_NAME"
+legal_name = "LEGAL_NAME"
+address = "ADDRESS"
+license_type = "LICENSE_TYPE"
+date = "APPLICATION_DATE"
+status = "CASE_STATUS"
+description = "DESCRIPTION"
+license_number = "CASE_NUMBER"

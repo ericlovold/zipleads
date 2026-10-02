@@ -2,13 +2,13 @@
 
 Find businesses that are about to open, move, or build out a space, inside
 any set of zip codes, for any industry. Signals come from public permit
-data, local news, and Google Places. Leads are deduped across sources,
+data, business-license applications, local news, and Google Places. Leads are deduped across sources,
 scored, enriched with a phone and a decision-maker, and exported as CSV.
 
 Two files drive a run:
 
 - **Territory** (where): zips, optional city labels, and that area's permit
-  layers. `territories/twin-cities-comcast.toml` ships as the first one.
+  layers and license feeds. `territories/twin-cities-comcast.toml` ships as the first one.
 - **Profile** (what): search terms, permit filters, contact titles, scoring
   weights, export columns. `profiles/telecom-new-business.toml` and
   `profiles/default.toml` ship.
@@ -19,7 +19,8 @@ sources  ->  territory filter  ->  dedupe + score  ->  enrich  ->  export CSV
 
 | Stage | Source | Signal | Needs |
 |---|---|---|---|
-| ingest | ArcGIS permit layers listed in the territory | permit issued matching profile terms | nothing |
+| ingest | ArcGIS permit layers listed in the territory | permit issued, sorted by kind | nothing |
+| ingest | License feeds listed in the territory (Legistar or ArcGIS) | license application: business, owner, address | nothing |
 | ingest | Google News RSS, one feed per territory city | "opens", "relocates", "expands" headlines | nothing |
 | ingest (off by default) | Google Places text search | `businessStatus = FUTURE_OPENING` | Places key |
 | enrich | Google Places details | business phone and website | Places key |
@@ -103,6 +104,29 @@ The rules are tested against real permits labeled from the rep's feedback
 permit to that file with the right label, then fix the rule until it passes.
 Profiles choose what to drop and hide in `[sorter]`.
 
+## License applications
+
+A permit usually names the contractor. A license application names the
+business and the entity that owns it, at the address where it will operate,
+before it opens. Each territory lists its feeds under `[[license_feeds]]`:
+
+- `type = "legistar"`: council resolutions approving license applications,
+  read from the public Legistar web API for `client`. Saint Paul sends Class N
+  licenses (liquor, entertainment, auto, and others) to City Council, and the
+  titles follow one template that the parser reads for owner, trade name,
+  license type, license id, and premises.
+- `type = "arcgis"`: a city license layer with an application date, mapped by
+  `[license_feeds.fields]`. Find one with
+  `zipleads find-layers <ArcGIS services url> license`, then confirm the field
+  names with `zipleads probe <feed> --sample 3`.
+
+Each application gets a kind, like a permit: a new license or an ownership
+change is `new_occupant`; an amendment, upgrade, or added license for an
+existing licensee is `tenant_refresh`. Adverse actions, renewals, withdrawn or
+denied applications, and licenses with no fixed site (food trucks, peddlers,
+temporary events) are dropped. `zipleads review-licenses --days 30` prints
+what the feeds would produce, with reasons, and writes nothing.
+
 ## Feedback loop: Google Sheet
 
 `send` appends each day's new leads to a Google Sheet when `GOOGLE_SHEET_ID`
@@ -126,6 +150,10 @@ Setup once:
 
 ## Cost controls
 
+- **Hard cap**: every Places request goes through a counter limited by
+  `PLACES_MAX_CALLS_PER_RUN` (default 60). The count is checked before each
+  request, so the cap is never exceeded; `enrich` stops cleanly and leaves the
+  rest for the next run.
 - **Places** text search bills at the Pro SKU. Calls per ingest run equal
   search areas times profile queries times pages, one page by default. The
   shipped territory has 85 city labels and 2 queries, so about 170 calls per
@@ -157,7 +185,9 @@ description, and Places primary type:
 - `boost` tags `flag:boost:<term>` and adds a bonus for segments that tend to
   buy bigger circuits (offices, clinics, warehouses, professional services).
 
-It is a keyword match, so it will miss some and mis-flag others. Treat it as a
+Terms match from the start of a word and skip street names, so
+"University Ave" does not drop a liquor store as education. It is still a
+keyword match, so it will miss some and mis-flag others. Treat it as a
 first pass, not a filter you trust blindly.
 
 ## Tests
@@ -181,6 +211,11 @@ so the first live run is the real integration test.
 ## Unverified against live endpoints
 
 - Saint Paul permit layer URL and field names (Minneapolis is confirmed).
+- Saint Paul Legistar license feed: the title template is confirmed from
+  published resolutions (RES 24-1372, RES 25-702, RES 25-628); the API response
+  is not yet confirmed from a live run. Check with `zipleads probe stpaul_licenses`.
+- Minneapolis license layer URL and field names (`mpls_licenses` ships with a
+  blank url and placeholder field names).
 - ZoomInfo request and response field names. Endpoint paths follow the
   public reference; the JSON shapes in `tests/fixtures/zoominfo_*.json` are
   the assumption.

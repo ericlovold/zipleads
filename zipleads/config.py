@@ -137,12 +137,54 @@ class PermitLayer:
 
 
 @dataclass(frozen=True)
+class LicenseFieldMap:
+    """Field names on an ArcGIS business-license layer. Confirm with `zipleads probe`."""
+
+    business_name: str = "BUSINESS_NAME"  # trade name (d/b/a)
+    address: str = "ADDRESS"
+    license_type: str = "LICENSE_TYPE"
+    date: str = "APPLICATION_DATE"  # when the application was filed
+    legal_name: str = ""  # optional: owning entity, often an LLC
+    status: str = ""  # optional: e.g. Pending / Issued / Withdrawn
+    description: str = ""  # optional: free text such as "change of ownership"
+    license_number: str = ""  # optional: cited in the description, dedupes repeat rows
+    latitude: str = ""
+    longitude: str = ""
+
+
+LICENSE_FEED_TYPES = ("legistar", "arcgis")
+
+
+@dataclass(frozen=True)
+class LicenseFeed:
+    """Where a city publishes business-license applications.
+
+    legistar: council resolutions approving license applications, read from the
+              public Legistar web API for `client` (e.g. "stpaul").
+    arcgis:   a license layer with an application date, mapped by `fields`.
+    """
+
+    name: str
+    type: str
+    city: str
+    state: str
+    url: str = ""
+    client: str = ""
+    fields: LicenseFieldMap = LicenseFieldMap()
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.client if self.type == "legistar" else self.url)
+
+
+@dataclass(frozen=True)
 class Territory:
     name: str
     state: str
     zips: dict[str, str]  # zip -> city label ("" when unknown)
     permit_layers: tuple[PermitLayer, ...]
     path: Path
+    license_feeds: tuple[LicenseFeed, ...] = ()
 
     def cities(self) -> list[str]:
         seen: dict[str, None] = {}
@@ -174,6 +216,25 @@ def load_territory(path: str | Path) -> Territory:
                 fields=PermitFieldMap(**{k: str(v) for k, v in fm.items()}),
             )
         )
+    feeds = []
+    for feed in doc.get("license_feeds", []):
+        kind = str(feed.get("type", "")).strip()
+        if kind not in LICENSE_FEED_TYPES:
+            raise ValueError(
+                f"{path}: license feed {feed.get('name')!r} has type {kind!r}; "
+                f"expected one of {', '.join(LICENSE_FEED_TYPES)}"
+            )
+        feeds.append(
+            LicenseFeed(
+                name=feed["name"],
+                type=kind,
+                city=feed.get("city", ""),
+                state=feed.get("state", state),
+                url=str(feed.get("url", "")).rstrip("/"),
+                client=str(feed.get("client", "")).strip(),
+                fields=LicenseFieldMap(**{k: str(v) for k, v in feed.get("fields", {}).items()}),
+            )
+        )
     if not zips:
         raise ValueError(f"{path}: territory has no zips")
     return Territory(
@@ -182,6 +243,7 @@ def load_territory(path: str | Path) -> Territory:
         zips=zips,
         permit_layers=tuple(layers),
         path=path,
+        license_feeds=tuple(feeds),
     )
 
 

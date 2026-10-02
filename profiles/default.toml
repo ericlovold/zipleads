@@ -25,5 +25,7 @@ news_only_penalty = -5
 unparsed_penalty = -10
 [score.source_weights]
 places_future = 40
+# A license application names the business and its owner; a permit names the contractor.
+licenses = 35
 permits = 30
 google_news = 20

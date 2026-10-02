@@ -10,7 +10,7 @@ from zipleads import mail, pipeline, sheets
 from zipleads.config import load_profile, load_settings, load_territory
 from zipleads.export import write_csv
 from zipleads.http import RequestsHttp
-from zipleads.sources import arcgis_permits
+from zipleads.sources import arcgis_permits, licenses
 from zipleads.store import Store
 
 
@@ -50,8 +50,8 @@ def _parser() -> argparse.ArgumentParser:
     sd.add_argument("--include-unparsed", action="store_true", help="also send headline-only news")
     sd.add_argument("--dry-run", action="store_true", help="build the email, print it, do not send")
 
-    pr = sub.add_parser("probe", help="print a permit layer's field names")
-    pr.add_argument("layer", help="permit layer name from the territory file")
+    pr = sub.add_parser("probe", help="print a permit or license layer's field names")
+    pr.add_argument("layer", help="permit layer or license feed name from the territory file")
     pr.add_argument("--sample", type=int, default=0, help="also print N most recent raw records")
 
     sub.add_parser("stats", help="counts by source and submission state")
@@ -65,6 +65,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     rv.add_argument("--days", type=int, default=None, help="look-back window (default INGEST_DAYS)")
     rv.add_argument("--kind", default="", help="only show this kind")
+
+    rl = sub.add_parser(
+        "review-licenses",
+        help="print recent license applications with kind and reasons (no storage)",
+    )
+    rl.add_argument("--days", type=int, default=None, help="look-back window (default INGEST_DAYS)")
+
+    fl = sub.add_parser("find-layers", help="list ArcGIS services whose name matches a word")
+    fl.add_argument(
+        "services_url", help="e.g. https://services.arcgis.com/<org>/arcgis/rest/services"
+    )
+    fl.add_argument("word", nargs="?", default="", help="e.g. license (case-insensitive)")
 
     pp = sub.add_parser("probe-places", help="run the profile's Places queries for one area")
     pp.add_argument("area", help='e.g. "Eagan, MN" or a zip')
@@ -103,6 +115,14 @@ def _new_territory(name: str, state: str, zips: str, out: str) -> int:
         '# date = "ISSUE_DATE"',
         '# value = "VALUATION"',
         "",
+        "# License applications: a Legistar council feed, or an ArcGIS license layer.",
+        "# Find layers with `zipleads find-layers <services url> license`.",
+        "# [[license_feeds]]",
+        '# name = "austin_licenses"',
+        '# type = "legistar"   # or "arcgis" with url and [license_feeds.fields]',
+        '# client = "austintexas"',
+        '# city = "Austin"',
+        "",
     ]
     path = Path(out)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -125,8 +145,31 @@ def main(argv: list[str] | None = None) -> int:
     profile = load_profile(args.profile or settings.profile_path)
     http = RequestsHttp()
 
+    if args.cmd == "find-layers":
+        base = args.services_url.rstrip("/")
+        doc = http.get_json(base, params={"f": "json"})
+        word = args.word.lower()
+        hits = [sv for sv in doc.get("services", []) if word in str(sv.get("name", "")).lower()]
+        for sv in hits:
+            url = sv.get("url") or f"{base}/{sv.get('name')}/{sv.get('type')}"
+            print(f"{sv.get('name', ''):45} {sv.get('type', ''):14} {url}")
+        print(f"{len(hits)} of {len(doc.get('services', []))} services match {args.word!r}")
+        return 0
+
     if args.cmd == "probe":
-        layer = next((ly for ly in territory.permit_layers if ly.name == args.layer), None)
+        feed = next((fd for fd in territory.license_feeds if fd.name == args.layer), None)
+        if feed is not None and feed.type == "legistar":
+            if not feed.client:
+                print(f"{args.layer}: no client in territory", file=sys.stderr)
+                return 2
+            matters = licenses.legistar_matters(http, feed, settings.ingest_days)
+            found = licenses.parse_matters(matters, feed)
+            print(f"{len(matters)} matters in {settings.ingest_days} days, {len(found)} leads")
+            for m in matters[: args.sample]:
+                print("---")
+                print(json.dumps(m, indent=1, default=str))
+            return 0
+        layer = feed or next((ly for ly in territory.permit_layers if ly.name == args.layer), None)
         if layer is None or not layer.url:
             print(f"{args.layer}: not in territory or no url", file=sys.stderr)
             return 2
@@ -156,6 +199,26 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{ld.kind:16} {conf:4} | {ld.address[:30]:30} | {reasons[:70]}")
                 print(f"{'':21} | {ld.description[:110]}")
         print(f"\n{sum(counts.values())} permits in {days} days: {dict(counts)}")
+        print(f"profile drops {list(profile.sorter_drop)}, hides {list(profile.sorter_hide)}")
+        return 0
+
+    if args.cmd == "review-licenses":
+        from collections import Counter
+
+        days = args.days or settings.ingest_days
+        counts: Counter[str] = Counter()
+        for feed in territory.license_feeds:
+            if not feed.configured:
+                print(f"{feed.name}: not configured, skipped")
+                continue
+            for ld in licenses.fetch_licenses(http, feed, days):
+                counts[ld.kind] += 1
+                reasons = "; ".join(ld.raw.get("kind_reasons", []))
+                name, addr = ld.company_name[:30], ld.address[:30]
+                print(f"{ld.kind:16} | {name:30} | {addr:30} | {reasons}")
+                if ld.applicant:
+                    print(f"{'':16} | owner: {ld.applicant}")
+        print(f"\n{sum(counts.values())} license leads in {days} days: {dict(counts)}")
         print(f"profile drops {list(profile.sorter_drop)}, hides {list(profile.sorter_hide)}")
         return 0
 

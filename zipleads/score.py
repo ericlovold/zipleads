@@ -26,6 +26,8 @@ def score_lead(
             return profile.source_weights[source]
         if source.endswith("_permits"):
             return profile.source_weights.get("permits", 10)
+        if source.endswith("_licenses"):
+            return profile.source_weights.get("licenses", 10)
         return 10
 
     score = max((weight(s) for s in source_list), default=0)

@@ -1,0 +1,68 @@
+[
+ {
+  "MatterId": 7900000,
+  "MatterGuid": "GUID-0",
+  "MatterFile": "RES 26-1501",
+  "MatterName": "",
+  "MatterTitle": "Approving the application for a license approval for Bao Bistro LLC d/b/a Bao Bistro for the Liquor Outdoor Service Area (Patio) and Wine On Sale (License ID #20260000999) for the premises located at 1600 Grand Avenue, in Ward 2.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ },
+ {
+  "MatterId": 7900001,
+  "MatterGuid": "GUID-1",
+  "MatterFile": "RES 26-1502",
+  "MatterName": "",
+  "MatterTitle": "Approving the application for change of ownership to the Liquor Off Sale and Tobacco Shop license now held by University Liquor LLC d/b/a Sharrett Liquor (License ID #20250000436) for the premises located at 2389 University Avenue West.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ },
+ {
+  "MatterId": 7900002,
+  "MatterGuid": "GUID-2",
+  "MatterFile": "RES 26-1503",
+  "MatterName": "",
+  "MatterTitle": "Approving the application for approval of amended license conditions for Earl Street Auto Sales and Repairs LLC d/b/a Earl Street Auto Sales and Repairs LLC for the Second Hand Dealer-Motor Vehicle and Auto Repair Garage (License ID #20250000006) for the premises located at 803 Earl St.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ },
+ {
+  "MatterId": 7900003,
+  "MatterGuid": "GUID-3",
+  "MatterFile": "RES 26-1504",
+  "MatterName": "",
+  "MatterTitle": "Approving adverse action against the Liquor On Sale license held by Foo LLC d/b/a Foo Bar (License ID #20190000001) for the premises located at 1 Wabasha St N.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ },
+ {
+  "MatterId": 7900004,
+  "MatterGuid": "GUID-4",
+  "MatterFile": "RES 26-1505",
+  "MatterName": "",
+  "MatterTitle": "Approving the application for a license approval for Taco Truck LLC d/b/a Taco Truck for the Mobile Food Vendor (License ID #20260000002) for the premises located at 5 Main St.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ },
+ {
+  "MatterId": 7900005,
+  "MatterGuid": "GUID-5",
+  "MatterFile": "RES 26-1506",
+  "MatterName": "",
+  "MatterTitle": "Authorizing the Department of Parks and Recreation to accept a grant from the Minnesota Department of Natural Resources.",
+  "MatterTypeName": "Resolution",
+  "MatterStatusName": "Adopted",
+  "MatterBodyName": "City Council",
+  "MatterIntroDate": "2026-09-30T00:00:00"
+ }
+]

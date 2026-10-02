@@ -594,3 +594,28 @@ def test_enrich_stops_at_places_budget_and_leaves_the_rest(make_settings, territ
     assert report.attempted == 1 and not report.errors
     # The lead cut off mid-way is not marked enriched, so the next run retries it.
     assert sum(1 for r in ctx.store.all_leads() if r["enriched_at"]) == 1
+
+
+def test_ingest_licenses_geocodes_and_hides_refreshes(
+    make_settings, territory, profile, fixture_json
+):
+    census = {
+        "result": {"addressMatches": [{"matchedAddress": "1600 GRAND AVE, SAINT PAUL, MN, 55105"}]}
+    }
+    http = FakeHttp(
+        {
+            "webapi.legistar.com": fixture_json("legistar_matters.json"),
+            "geocoding.geo.census.gov": census,
+        }
+    )
+    ctx = _ctx(make_settings(), territory, profile, http)
+    report = ingest(ctx, ("licenses",))
+    assert report.errors == {}
+    assert report.fetched == {"stpaul_licenses": 3}  # mpls_licenses has no url yet
+    rows = {r["company_name"]: r for r in ctx.store.all_leads()}
+    assert set(rows) == {"Bao Bistro", "Sharrett Liquor", "Earl Street Auto Sales and Repairs LLC"}
+    assert rows["Bao Bistro"]["zip"] == "55105" and rows["Bao Bistro"]["kind"] == "new_occupant"
+    assert rows["Bao Bistro"]["applicant"] == "Bao Bistro LLC"
+    # The amendment is stored but hidden from export, like a tenant refresh permit.
+    shown = {r["company_name"] for r in ctx.store.unsubmitted(None, hide_kinds=profile.sorter_hide)}
+    assert "Earl Street Auto Sales and Repairs LLC" not in shown and "Bao Bistro" in shown

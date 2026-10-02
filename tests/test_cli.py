@@ -42,7 +42,7 @@ def test_probe_places_requires_key(tmp_path, monkeypatch, capsys):
 def test_default_ingest_sources_exclude_places():
     from zipleads import pipeline
 
-    assert pipeline.DEFAULT_SOURCES == ("permits", "news")
+    assert pipeline.DEFAULT_SOURCES == ("permits", "licenses", "news")
     assert "places" in pipeline.BUILTIN_SOURCES
 
 
@@ -66,3 +66,43 @@ def test_review_permits_prints_kinds_and_reasons(tmp_path, monkeypatch, capsys, 
     assert "says 'Tenant improvement'" in out or "tenant improvement" in out.lower()
     assert "3 permits in 7 days" in out
     assert not (tmp_path / "x.sqlite").exists()  # review never writes the database
+
+
+def test_review_licenses_prints_owner_and_kinds(tmp_path, monkeypatch, capsys, fixture_json):
+    from tests.conftest import FakeHttp
+    from zipleads import cli
+
+    monkeypatch.setenv("ZIPLEADS_DB", str(tmp_path / "x.sqlite"))
+    monkeypatch.setattr(
+        cli,
+        "RequestsHttp",
+        lambda: FakeHttp({"webapi.legistar.com": fixture_json("legistar_matters.json")}),
+    )
+    assert main(["review-licenses", "--days", "7"]) == 0
+    out = capsys.readouterr().out
+    assert "Bao Bistro" in out and "owner: Bao Bistro LLC" in out
+    assert "mpls_licenses: not configured, skipped" in out
+    assert "3 license leads in 7 days" in out
+    assert not (tmp_path / "x.sqlite").exists()
+
+
+def test_find_layers_filters_services(monkeypatch, capsys):
+    from tests.conftest import FakeHttp
+    from zipleads import cli
+
+    base = "https://services.arcgis.com/org/arcgis/rest/services"
+    doc = {
+        "services": [
+            {
+                "name": "CCS_Permits",
+                "type": "FeatureServer",
+                "url": f"{base}/CCS_Permits/FeatureServer",
+            },
+            {"name": "Business_Licenses", "type": "FeatureServer"},
+        ]
+    }
+    monkeypatch.setattr(cli, "RequestsHttp", lambda: FakeHttp({base: doc}))
+    assert main(["find-layers", base, "LICENSE"]) == 0
+    out = capsys.readouterr().out
+    assert f"{base}/Business_Licenses/FeatureServer" in out and "CCS_Permits" not in out
+    assert "1 of 2 services match 'LICENSE'" in out
