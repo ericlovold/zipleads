@@ -70,6 +70,14 @@ WRITTEN = [
     (BUILDING_SYSTEMS, "Commercial", "Remodel", "Repair water damage, 2nd floor corridor", ""),
     (RESIDENTIAL, "Commercial", "Remodel", "Repair water damage in apartment unit 3", ""),
     (RESIDENTIAL, "Commercial", "Remodel", "Kitchen remodel unit 5B", "Lakeview Condominium Assn"),
+    (
+        BUILDING_SYSTEMS,
+        "Wrecking",
+        "Private",
+        "Wreck existing office building to make way for new office development",
+        "",
+    ),
+    (NEW_OCCUPANT, "Commercial", "Remodel", "Restaurant under new ownership, interior refresh", ""),
 ]
 
 

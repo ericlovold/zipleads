@@ -151,6 +151,7 @@ def _number(value) -> float:
 def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -> list[Lead]:
     f = layer.fields
     leads: list[Lead] = []
+    seen_permits: set[str] = set()
     for feat in features:
         a = feat.get("attributes", {})
         permit_type = str(a.get(f.permit_type) or "")
@@ -158,6 +159,11 @@ def parse_features(features: list[dict], layer: PermitLayer, profile: Profile) -
         description = str(a.get(f.description) or "")
         occupancy = str(a.get(f.occupancy) or "") if f.occupancy else ""
         permit_number = str(a.get(f.permit_number) or "") if f.permit_number else ""
+        # Some layers return one row per contractor or inspection on the same permit.
+        if permit_number:
+            if permit_number in seen_permits:
+                continue
+            seen_permits.add(permit_number)
         status = str(a.get(f.status) or "") if f.status else ""
         applicant = str(a.get(f.applicant) or "").strip()
         person = str(a.get(f.applicant_person) or "").strip() if f.applicant_person else ""

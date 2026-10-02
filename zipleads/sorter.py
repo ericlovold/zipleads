@@ -47,7 +47,8 @@ _RESIDENTIAL_CODES = {"sfd", "tfd", "3to4", "mfd", "res", "existres", "residenti
 _R_OCCUPANCY = re.compile(r"\boccupancy:?\s*(?:group\s*)?r-?[1-4]\b", re.I)
 _RESIDENTIAL_TEXT = re.compile(
     r"\b(single[- ]family|two[- ]family|duplex|townhome|townhouse|condo(minium)?s?|"
-    r"dwelling units?|residential|apartment units?|basement (bathroom|finish))\b",
+    r"dwelling units?|residential|apartment units?|basement (bathroom|finish)|"
+    r"into\s+(housing|apartments?|residences|dwellings?)|housing\s+units?|affordable\s+housing)\b",
     re.I,
 )
 # Owners or applicants that are housing entities or private persons' trusts.
@@ -63,7 +64,7 @@ _UNIT_REMODEL = re.compile(r"\b(remodel|renovat\w*|update)\s+(of\s+)?unit\s*#?\s
 
 _TI = re.compile(
     r"\b(tenant\s+(improvement|finish|build[- ]?out|fit[- ]?out|remodel)|"
-    r"build[- ]?out|fit[- ]?out|white\s*box|vanilla\s*box)\b",
+    r"build[- ]?out|fit[- ]?out|white\s*box|vanilla\s*box|t\s*/\s*i)\b",
     re.I,
 )
 # A space being readied for someone not there yet: the site-visit cases.
@@ -72,7 +73,14 @@ _FUTURE_TENANT = re.compile(
     r"vacant\s+(suite|space|unit))\b",
     re.I,
 )
-_RELOCATION = re.compile(r"\b(relocat\w+|moving\s+(to|into))\b", re.I)
+_RELOCATION = re.compile(r"\b(relocat\w*|moving)\s+(to|into|from)\b", re.I)
+# A business changing hands is the "changed" case the rep asked for.
+_OWNERSHIP = re.compile(
+    r"\b(change\s+of\s+(business\s+)?owner(ship)?|new\s+(business\s+)?owner(ship)?|"
+    r"under\s+new\s+ownership)\b",
+    re.I,
+)
+_DEMOLITION_TYPES = {"wrecking", "wreck", "demolition", "demo"}
 _EXISTING_TENANT = re.compile(r"\bexisting\s+(tenant|occupant|business)\b", re.I)
 _NEW_THING = re.compile(
     r"\bnew\s+(?:[a-z&'-]+\s+){0,3}?"
@@ -155,6 +163,10 @@ def sort_permit(
     if m := _RESIDENTIAL_OWNER.search(applicant or ""):
         return Verdict(RESIDENTIAL, "low", (f"owner looks residential: '{m.group(0)}'",))
 
+    # A wrecking permit tears a building down; whatever comes next needs its own permit.
+    if hit := codes & _DEMOLITION_TYPES & _tokens(permit_type):
+        return Verdict(BUILDING_SYSTEMS, "high", (f"demolition permit: {', '.join(sorted(hit))}",))
+
     # 2. New occupant: someone is moving in, or a space is being created.
     new_reasons: list[str] = []
     if _CO_YES.search(text):
@@ -171,6 +183,8 @@ def sort_permit(
         new_reasons.append(f"says '{m.group(0)}'")
     if m := _RELOCATION.search(text):
         new_reasons.append(f"says '{m.group(0)}'")
+    if m := _OWNERSHIP.search(text):
+        new_reasons.append(f"ownership change: '{m.group(0)}'")
     if codes & _NEW_WORK_TYPES or "new construction" in (work_type or "").lower():
         new_reasons.append(f"work type '{work_type}'")
     ti = _TI.search(text)

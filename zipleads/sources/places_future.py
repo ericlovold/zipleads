@@ -18,7 +18,7 @@ for experiments with other query strategies.
 
 from __future__ import annotations
 
-from zipleads.http import Http
+from zipleads.http import BudgetExhausted, Http
 from zipleads.models import Lead
 from zipleads.territory import TerritoryMatcher
 
@@ -84,7 +84,10 @@ def fetch_future_openings(
         for query in queries:
             body: dict = {"textQuery": f"{query} {area}", "pageSize": 20}
             for _ in range(max_pages):
-                page = http.post_json(SEARCH_URL, body, headers=headers)
+                try:
+                    page = http.post_json(SEARCH_URL, body, headers=headers)
+                except BudgetExhausted:
+                    return leads  # keep what the paid calls already found
                 places = [p for p in page.get("places", []) if p.get("id") not in seen]
                 seen.update(p.get("id") for p in places)
                 leads.extend(parse_places(places, matcher))

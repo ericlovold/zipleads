@@ -1,3 +1,5 @@
+import dataclasses
+
 from tests.conftest import FakeHttp
 from zipleads.enrich import places_details
 from zipleads.enrich.zoominfo import ZoomInfoClient, domain_from_website
@@ -561,3 +563,34 @@ def test_new_occupant_permit_outranks_refresh_at_same_site(tmp_path):
         )
     )
     assert store.get(key)["kind"] == "new_occupant"
+
+
+def test_enrich_stops_at_places_budget_and_leaves_the_rest(make_settings, territory, profile):
+    # One lead costs 2 calls (search by name, then details), so 3 runs out mid-lead.
+    settings = dataclasses.replace(make_settings(places_key="PK"), places_max_calls=3)
+    http = FakeHttp(
+        {
+            "places:searchText": {
+                "places": [{"id": "ChIJx", "displayName": {"text": "Northstar Dental"}}]
+            },
+            "/v1/places/ChIJx": {"nationalPhoneNumber": "651-555-0100"},
+        }
+    )
+    ctx = _ctx(settings, territory, profile, http)
+    for i in range(3):
+        ctx.store.upsert(
+            Lead(
+                source="mpls_permits",
+                signal="p",
+                company_name=f"Northstar Dental {i}",
+                address=f"{1200 + i} Yankee Doodle Rd",
+                zip="55121",
+                city="Eagan",
+            )
+        )
+    report = enrich(ctx, limit=10)
+    assert report.stopped_at_budget and report.places_calls == 3
+    assert len(http.calls) == 3  # the ceiling is never crossed
+    assert report.attempted == 1 and not report.errors
+    # The lead cut off mid-way is not marked enriched, so the next run retries it.
+    assert sum(1 for r in ctx.store.all_leads() if r["enriched_at"]) == 1

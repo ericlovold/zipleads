@@ -176,3 +176,12 @@ def test_news_exclude_terms_drop_headlines_before_storage(fixture_text, matcher)
     leads = google_news.items_to_leads(items, matcher, "Eagan", "MN", exclude_terms=("festival",))
     assert "Fall festival draws crowds to Eagan park" not in [ld.company_name for ld in leads]
     assert len(leads) == 3
+
+
+def test_permits_dedupe_by_permit_number(fixture_json, territory, profile):
+    layer = territory.permit_layers[0]
+    feats = fixture_json("arcgis_query.json")["features"]
+    # The live Minneapolis layer repeats a permit once per contractor row.
+    once = arcgis_permits.parse_features(feats, layer, profile)
+    twice = arcgis_permits.parse_features([feats[0], *feats], layer, profile)
+    assert [ld.description for ld in twice] == [ld.description for ld in once]

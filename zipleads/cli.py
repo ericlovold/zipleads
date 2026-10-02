@@ -232,8 +232,14 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"attempted={r.attempted} phones_found={r.phones_found} "
                 f"companies_found={r.companies_found} "
-                f"contacts_found={r.contacts_found} zoominfo_skipped={r.zoominfo_skipped}"
+                f"contacts_found={r.contacts_found} zoominfo_skipped={r.zoominfo_skipped} "
+                f"places_calls={r.places_calls}"
             )
+            if r.stopped_at_budget:
+                print(
+                    "stopped at PLACES_MAX_CALLS_PER_RUN; remaining leads wait for the next run",
+                    file=sys.stderr,
+                )
             if r.errors:
                 print(f"errors={r.errors}", file=sys.stderr)
                 return 1

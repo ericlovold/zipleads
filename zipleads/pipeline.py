@@ -10,7 +10,7 @@ from zipleads.config import Profile, Settings, Territory
 from zipleads.enrich import places_details
 from zipleads.enrich.zoominfo import ZoomInfoClient
 from zipleads.geocode import Geocoder
-from zipleads.http import Http
+from zipleads.http import BudgetedHttp, BudgetExhausted, Http
 from zipleads.models import Lead
 from zipleads.normalize import extract_zip, normalize_address, normalize_name
 from zipleads.score import score_lead
@@ -130,7 +130,7 @@ def _run_source(ctx: Context, name: str, report: IngestReport) -> None:
                 log.info("places: GOOGLE_PLACES_API_KEY not set, skipping")
                 return
             leads = places_future.fetch_future_openings(
-                ctx.http,
+                BudgetedHttp(ctx.http, ctx.settings.places_max_calls, label="google places"),
                 ctx.settings.google_places_api_key,
                 ctx.matcher,
                 ctx.profile.places_queries,
@@ -159,6 +159,8 @@ class EnrichReport:
     companies_found: int = 0  # address-only leads that Places resolved to one business
     contacts_found: int = 0
     zoominfo_skipped: bool = False
+    places_calls: int = 0
+    stopped_at_budget: bool = False  # hit PLACES_MAX_CALLS_PER_RUN; the rest wait for next run
     errors: dict[str, str] = field(default_factory=dict)
 
 
@@ -218,6 +220,7 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
         if settings.zoominfo_enabled
         else None
     )
+    places = BudgetedHttp(ctx.http, settings.places_max_calls, label="google places")
     for row in ctx.store.needs_enrichment(limit, hide_kinds=ctx.profile.sorter_hide):
         key = row["dedupe_key"]
         report.attempted += 1
@@ -229,11 +232,11 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                 lat, lon = _coords_from_raw(ctx.store, key)
                 if lat and lon:
                     hits = places_details.find_near(
-                        ctx.http, settings.google_places_api_key, lat, lon, row["address"]
+                        places, settings.google_places_api_key, lat, lon, row["address"]
                     )
                 else:
                     hits = places_details.find_at_address(
-                        ctx.http,
+                        places,
                         settings.google_places_api_key,
                         row["address"],
                         row["city"],
@@ -254,7 +257,7 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                 if not place_id and company_name:
                     where = row["address"] or ", ".join(x for x in (row["city"], row["state"]) if x)
                     hit = places_details.find_by_name(
-                        ctx.http, settings.google_places_api_key, company_name, where
+                        places, settings.google_places_api_key, company_name, where
                     )
                     if hit and hit.address and not _same_place(ctx, row, hit.address):
                         hit = None  # same name, different town: an existing location, not this one
@@ -265,7 +268,7 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                             if not row["zip"]:
                                 updates["zip"] = extract_zip(hit.address)
                 contact = places_details.fetch_contact(
-                    ctx.http, settings.google_places_api_key, place_id
+                    places, settings.google_places_api_key, place_id
                 )
                 if contact.phone:
                     updates["phone"] = contact.phone
@@ -283,6 +286,12 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
                         updates["phone"] = person.phone
                     if person.email:
                         report.contacts_found += 1
+        except BudgetExhausted as exc:
+            # Leave this lead un-enriched so the next run picks it up first.
+            log.warning("%s; stopping enrich", exc)
+            report.attempted -= 1
+            report.stopped_at_budget = True
+            break
         except Exception as exc:
             log.exception("enrich %s failed", key)
             report.errors[key] = f"{type(exc).__name__}: {exc}"
@@ -291,4 +300,5 @@ def enrich(ctx: Context, limit: int) -> EnrichReport:
             ctx.store.update_fields(key, **updates)
         ctx.store.mark_enriched(key)
         _rescore(ctx, key)
+    report.places_calls = places.calls
     return report

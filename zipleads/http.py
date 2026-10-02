@@ -77,3 +77,46 @@ class RequestsHttp:
         self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
     ) -> Any:
         return self._send("PUT", url, json=body, headers=headers, params=params).json()
+
+
+class BudgetExhausted(RuntimeError):
+    """A metered API hit its per-run call ceiling."""
+
+
+class BudgetedHttp:
+    """Counts requests through `inner` and refuses the one past `max_calls`.
+
+    Wrap a metered API (Google Places) so a bug or a big backlog cannot run up a bill.
+    The check happens before the request, so the ceiling is never exceeded.
+    """
+
+    def __init__(self, inner: Http, max_calls: int, label: str = "api"):
+        self.inner = inner
+        self.max_calls = max_calls
+        self.label = label
+        self.calls = 0
+
+    def _spend(self) -> None:
+        if self.calls >= self.max_calls:
+            raise BudgetExhausted(f"{self.label}: per-run limit of {self.max_calls} calls reached")
+        self.calls += 1
+
+    def get_json(self, url: str, params: dict | None = None, headers: dict | None = None) -> Any:
+        self._spend()
+        return self.inner.get_json(url, params=params, headers=headers)
+
+    def get_text(self, url: str, params: dict | None = None, headers: dict | None = None) -> str:
+        self._spend()
+        return self.inner.get_text(url, params=params, headers=headers)
+
+    def post_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any:
+        self._spend()
+        return self.inner.post_json(url, body, headers=headers, params=params)
+
+    def put_json(
+        self, url: str, body: dict, headers: dict | None = None, params: dict | None = None
+    ) -> Any:
+        self._spend()
+        return self.inner.put_json(url, body, headers=headers, params=params)

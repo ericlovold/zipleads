@@ -56,6 +56,8 @@ class Settings:
     sheet_id: str = ""
     sheet_tab: str = "Leads"
     service_account_json: Path = Path("")
+    # Hard ceiling on billable Google Places requests per command run.
+    places_max_calls: int = 60
 
     @property
     def sheet_enabled(self) -> bool:
@@ -86,6 +88,7 @@ def load_settings() -> Settings:
         zoominfo_username=env.get("ZOOMINFO_USERNAME", "").strip(),
         zoominfo_password=env.get("ZOOMINFO_PASSWORD", "").strip(),
         zoominfo_enable=_bool(env.get("ZOOMINFO_ENABLE"), False),
+        places_max_calls=int(env.get("PLACES_MAX_CALLS_PER_RUN", "60")),
         db_path=Path(env.get("ZIPLEADS_DB", "data/leads.sqlite")),
         territory_path=Path(env.get("ZIPLEADS_TERRITORY", "territories/twin-cities-comcast.toml")),
         profile_path=Path(env.get("ZIPLEADS_PROFILE", "profiles/telecom-new-business.toml")),
